@@ -1,12 +1,10 @@
 <?php
 
 use App\Models\User;
-
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
-
 
 Route::post('/auth/login', function (Request $request) {
     $request->validate([
