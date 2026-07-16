@@ -24,7 +24,6 @@ class UserService
 
         $token = $user->createToken($request->email)->plainTextToken;
 
-
         return response()->json([
             'message' => 'Login successful.',
             'token' => $token,
