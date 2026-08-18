@@ -12,6 +12,7 @@ class UserRepository
     {
         return User::where('email', $email)->first();
     }
+
     public function findByPhone(string $phone): ?User
     {
         return User::where('phone', $phone)->first();
@@ -22,15 +23,17 @@ class UserRepository
         return User::create($data);
     }
 
-    public function createOrganizer(int $userId): Organizer
-    {
+    public function createOrganizer(
+        int $userId
+    ): Organizer {
         return Organizer::create([
             'user_id' => $userId,
         ]);
     }
 
-    public function createClient(int $userId): ClientProfile
-    {
+    public function createClient(
+        int $userId
+    ): ClientProfile {
         return ClientProfile::create([
             'user_id' => $userId,
         ]);

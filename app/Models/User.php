@@ -16,6 +16,7 @@ use Laravel\Sanctum\HasApiTokens;
     'lastname',
     'email',
     'phone',
+    'address',
     'password',
     'role',
 ])]
@@ -34,6 +35,7 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
     public function organizer(): HasOne
     {
         return $this->hasOne(Organizer::class);

@@ -12,8 +12,10 @@ class UserController extends Controller
         protected UserService $userService
     ) {}
 
-    public function login(Request $request): JsonResponse
-    {
+
+    public function login(
+        Request $request
+    ): JsonResponse {
         $validated = $request->validate([
             'email' => [
                 'nullable',
@@ -38,79 +40,66 @@ class UserController extends Controller
             $validated
         );
 
-        return response()->json($result);
+        return response()->json(
+            $result
+        );
     }
 
-    public function register(Request $request): JsonResponse
-    {
-        $method = $request->input('register_method');
 
-        $rules = [
-            'register_method' => [
-                'required',
-                'in:email,phone',
-            ],
-
-            'firstname' => [
-                'required',
-                'string',
-                'max:100',
-            ],
-
-            'middlename' => [
-                'nullable',
-                'string',
-                'max:100',
-            ],
-
-            'lastname' => [
-                'required',
-                'string',
-                'max:100',
-            ],
-
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-            ],
-
-            'role' => [
-                'required',
-                'in:organizer,client',
-            ],
-        ];
-
-        /*
-     * EMAIL REGISTRATION
-     *
-     * Phone is NOT validated at all.
-     */
-        if ($method === 'email') {
-            $rules['email'] = [
-                'required',
-                'email',
-                'max:255',
-                'unique:users,email',
-            ];
-        }
-
-        /*
-     * PHONE REGISTRATION
-     *
-     * Email is NOT validated at all.
-     */
-        if ($method === 'phone') {
-            $rules['phone'] = [
-                'required',
-                'string',
-                'regex:/^\+639\d{9}$/',
-                'unique:users,phone',
-            ];
-        }
-
+    public function register(
+        Request $request
+    ): JsonResponse {
         $validated = $request->validate(
-            $rules,
+            [
+                'firstname' => [
+                    'required',
+                    'string',
+                    'max:100',
+                ],
+
+                'middlename' => [
+                    'nullable',
+                    'string',
+                    'max:100',
+                ],
+
+                'lastname' => [
+                    'required',
+                    'string',
+                    'max:100',
+                ],
+
+                'email' => [
+                    'required',
+                    'email',
+                    'max:255',
+                    'unique:users,email',
+                ],
+
+                'phone' => [
+                    'required',
+                    'string',
+                    'regex:/^\+639\d{9}$/',
+                    'unique:users,phone',
+                ],
+
+                'address' => [
+                    'required',
+                    'string',
+                    'max:500',
+                ],
+
+                'password' => [
+                    'required',
+                    'string',
+                    'min:8',
+                ],
+
+                'role' => [
+                    'required',
+                    'in:organizer,client',
+                ],
+            ],
             [
                 'email.required' =>
                 'The email address field is required.',
@@ -129,6 +118,9 @@ class UserController extends Controller
 
                 'phone.unique' =>
                 'This phone number is already registered.',
+
+                'address.required' =>
+                'The address field is required.',
             ]
         );
 
@@ -136,33 +128,107 @@ class UserController extends Controller
             $validated
         );
 
+        /*
+         * Load the related profile created
+         * during registration.
+         */
+        $user->load([
+            'client',
+            'organizer',
+        ]);
+
         return response()->json([
-            'message' => 'Account created successfully.',
+            'message' =>
+            'Account created successfully.',
 
             'data' => [
-                'id' => $user->id,
-                'firstname' => $user->firstname,
-                'middlename' => $user->middlename,
-                'lastname' => $user->lastname,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->role,
+                'id' =>
+                $user->id,
+
+                'firstname' =>
+                $user->firstname,
+
+                'middlename' =>
+                $user->middlename,
+
+                'lastname' =>
+                $user->lastname,
+
+                'email' =>
+                $user->email,
+
+                'phone' =>
+                $user->phone,
+
+                'address' =>
+                $user->address,
+
+                'role' =>
+                $user->role,
+
+                /*
+                 * If role = client,
+                 * this contains clients.id.
+                 */
+                'client_id' =>
+                $user->client?->id,
+
+                /*
+                 * If role = organizer,
+                 * this contains organizers.id.
+                 */
+                'organizer_id' =>
+                $user->organizer?->id,
             ],
         ], 201);
     }
-    public function me(Request $request): JsonResponse
-    {
+
+
+    public function me(
+        Request $request
+    ): JsonResponse {
         $user = $request->user();
+
+        /*
+         * Load client / organizer profile
+         * so their profile IDs are available.
+         */
+        $user->load([
+            'client',
+            'organizer',
+        ]);
 
         return response()->json([
             'user' => [
-                'id' => $user->id,
-                'firstname' => $user->firstname,
-                'middlename' => $user->middlename,
-                'lastname' => $user->lastname,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->role,
+                'id' =>
+                $user->id,
+
+                'firstname' =>
+                $user->firstname,
+
+                'middlename' =>
+                $user->middlename,
+
+                'lastname' =>
+                $user->lastname,
+
+                'email' =>
+                $user->email,
+
+                'phone' =>
+                $user->phone,
+
+                'address' =>
+                $user->address,
+
+                'role' =>
+                $user->role,
+
+                'client_id' =>
+                $user->client?->id,
+
+                'organizer_id' =>
+                $user->organizer?->id,
             ],
         ]);
     }
