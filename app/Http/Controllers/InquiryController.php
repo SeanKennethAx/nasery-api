@@ -86,7 +86,8 @@ class InquiryController extends Controller
             $client->id,
 
             'event_title' =>
-            $validated['event_title'] ?? null,
+            $validated['event_title']
+                ?? null,
 
             'event_type' =>
             $validated['event_type'],
@@ -104,7 +105,11 @@ class InquiryController extends Controller
             $validated['budget_range'],
 
             'additional_details' =>
-            $validated['additional_details'] ?? null,
+            $validated['additional_details']
+                ?? null,
+
+            'status' =>
+            'open',
         ]);
 
         return response()->json([
@@ -115,12 +120,6 @@ class InquiryController extends Controller
             $inquiry,
         ], 201);
     }
-
-
-    /**
-     * Get all inquiries created
-     * by the authenticated client.
-     */
     public function clientInquiries(
         Request $request
     ): JsonResponse {
@@ -154,6 +153,9 @@ class InquiryController extends Controller
                 'client_id',
                 $client->id
             )
+
+            ->withCount('quotations')
+
             ->latest()
             ->get();
 
@@ -162,15 +164,6 @@ class InquiryController extends Controller
             $inquiries,
         ]);
     }
-
-
-    /**
-     * Organizer matching inquiries.
-     *
-     * Only inquiries whose event_type
-     * matches one of the organizer's tags
-     * will be returned.
-     */
     public function matching(
         Request $request
     ): JsonResponse {
@@ -211,10 +204,20 @@ class InquiryController extends Controller
             ->with([
                 'client.user',
             ])
+            ->withCount('quotations')
+
             ->whereIn(
                 'event_type',
                 $tags
             )
+            ->whereIn(
+                'status',
+                [
+                    'open',
+                    'receiving_quotations',
+                ]
+            )
+
             ->latest()
             ->get();
 

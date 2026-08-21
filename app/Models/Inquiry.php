@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Inquiry extends Model
 {
@@ -16,21 +15,36 @@ class Inquiry extends Model
         'expected_guests',
         'budget_range',
         'additional_details',
+        'status',
+        'awarded_quotation_id',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'event_date' => 'date',
-            'expected_guests' => 'integer',
-        ];
-    }
+    protected $casts = [
+        'event_date' => 'date',
+        'expected_guests' => 'integer',
+    ];
 
-    public function client(): BelongsTo
+    public function client()
     {
         return $this->belongsTo(
             ClientProfile::class,
             'client_id'
+        );
+    }
+
+    public function quotations()
+    {
+        return $this->hasMany(
+            Quotation::class,
+            'inquiry_id'
+        );
+    }
+
+    public function awardedQuotation()
+    {
+        return $this->belongsTo(
+            Quotation::class,
+            'awarded_quotation_id'
         );
     }
 }
