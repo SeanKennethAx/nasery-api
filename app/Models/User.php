@@ -2,32 +2,32 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable([
-    'firstname',
-    'middlename',
-    'lastname',
-    'email',
-    'phone',
-    'address',
-    'password',
-    'role',
-])]
-#[Hidden([
-    'password',
-    'remember_token',
-])]
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+
+    protected $fillable = [
+        'firstname',
+        'middlename',
+        'lastname',
+        'email',
+        'phone',
+        'address',
+        'password',
+        'role',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     protected function casts(): array
     {
@@ -39,19 +39,23 @@ class User extends Authenticatable
 
     public function organizer(): HasOne
     {
-        return $this->hasOne(Organizer::class);
+        return $this->hasOne(Organizer::class, 'user_id');
     }
 
     public function client(): HasOne
     {
-        return $this->hasOne(ClientProfile::class);
+        return $this->hasOne(ClientProfile::class, 'user_id');
     }
 
-    public function inquiries(): HasMany
+    public function inquiries(): HasManyThrough
     {
-        return $this->hasMany(
+        return $this->hasManyThrough(
             Inquiry::class,
-            'client_id'
+            ClientProfile::class,
+            'user_id',
+            'client_id',
+            'id',
+            'id'
         );
     }
 }

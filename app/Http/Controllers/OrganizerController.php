@@ -88,6 +88,7 @@ class OrganizerController extends Controller
             ], 404);
         }
 
+
         $validated = $request->validate([
             'company_name' => [
                 'nullable',

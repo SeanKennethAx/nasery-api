@@ -3,9 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Inquiry extends Model
 {
+    protected $table = 'inquiries';
+
     protected $fillable = [
         'client_id',
         'event_title',
@@ -20,11 +25,13 @@ class Inquiry extends Model
     ];
 
     protected $casts = [
+        'client_id' => 'integer',
         'event_date' => 'date',
         'expected_guests' => 'integer',
+        'awarded_quotation_id' => 'integer',
     ];
 
-    public function client()
+    public function client(): BelongsTo
     {
         return $this->belongsTo(
             ClientProfile::class,
@@ -32,19 +39,26 @@ class Inquiry extends Model
         );
     }
 
-    public function quotations()
+    public function awardedQuotation(): BelongsTo
+    {
+        return $this->belongsTo(
+            Quotation::class,
+            'awarded_quotation_id'
+        );
+    }
+
+    public function quotations(): HasMany
     {
         return $this->hasMany(
             Quotation::class,
             'inquiry_id'
         );
     }
-
-    public function awardedQuotation()
+    public function event(): HasOne
     {
-        return $this->belongsTo(
-            Quotation::class,
-            'awarded_quotation_id'
+        return $this->hasOne(
+            Event::class,
+            'inquiry_id'
         );
     }
 }

@@ -43,4 +43,11 @@ class Quotation extends Model
             'quotation_id'
         );
     }
+    public function event()
+    {
+        return $this->hasOne(
+            Event::class,
+            'quotation_id'
+        );
+    }
 }

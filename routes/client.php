@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\ClientEventTicketController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,4 +37,22 @@ Route::post(
 Route::post(
     '/notifications/read-all',
     [NotificationController::class, 'markAllAsRead']
+);
+Route::get(
+    '/client/inquiries/{inquiry}/event',
+    [QuotationController::class, 'clientEventDetails']
+);
+Route::get(
+    '/client/events/{event}/tickets',
+    [ClientEventTicketController::class, 'index']
+);
+
+Route::post(
+    '/client/events/{event}/tickets',
+    [ClientEventTicketController::class, 'store']
+);
+
+Route::get(
+    '/client/events/{event}/tickets/{ticket}',
+    [ClientEventTicketController::class, 'show']
 );

@@ -7,30 +7,17 @@ use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    public function index(
-        Request $request
-    ): JsonResponse {
+    public function index(Request $request): JsonResponse
+    {
         $user = $request->user();
 
         if (!$user) {
-            return response()->json([
-                'message' =>
-                'Unauthenticated.',
-            ], 401);
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         return response()->json([
-            'data' =>
-            $user
-                ->notifications()
-                ->latest()
-                ->limit(50)
-                ->get(),
-
-            'unread_count' =>
-            $user
-                ->unreadNotifications()
-                ->count(),
+            'data' => $user->notifications()->latest()->limit(50)->get(),
+            'unread_count' => $user->unreadNotifications()->count(),
         ]);
     }
 

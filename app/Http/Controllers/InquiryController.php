@@ -8,9 +8,6 @@ use Illuminate\Http\Request;
 
 class InquiryController extends Controller
 {
-    /**
-     * Client creates a new inquiry.
-     */
     public function store(
         Request $request
     ): JsonResponse {
@@ -120,110 +117,65 @@ class InquiryController extends Controller
             $inquiry,
         ], 201);
     }
-    public function clientInquiries(
-        Request $request
-    ): JsonResponse {
+    public function clientInquiries(Request $request): JsonResponse
+    {
         $user = $request->user();
-
         if (!$user) {
-            return response()->json([
-                'message' =>
-                'Unauthenticated.',
-            ], 401);
-        }
-
-        if ($user->role !== 'client') {
-            return response()->json([
-                'message' =>
-                'Only clients can view their inquiries.',
-            ], 403);
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         $client = $user->client;
-
         if (!$client) {
-            return response()->json([
-                'message' =>
-                'Client profile not found.',
-            ], 404);
+            return response()->json(['message' => 'Client profile not found.'], 404);
         }
 
-        $inquiries = Inquiry::query()
-            ->where(
-                'client_id',
-                $client->id
-            )
-
-            ->withCount('quotations')
-
-            ->latest()
-            ->get();
+        $inquiries = Inquiry::where('client_id', $client->id)->latest()->get();
 
         return response()->json([
-            'data' =>
-            $inquiries,
+            'message' => 'Inquiries retrieved successfully.',
+            'data' => $inquiries,
         ]);
     }
-    public function matching(
-        Request $request
-    ): JsonResponse {
+    public function matching(Request $request): JsonResponse
+    {
         $user = $request->user();
 
         if (!$user) {
-            return response()->json([
-                'message' =>
-                'Unauthenticated.',
-            ], 401);
-        }
-
-        if ($user->role !== 'organizer') {
-            return response()->json([
-                'message' =>
-                'Only organizers can view matching inquiries.',
-            ], 403);
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         $organizer = $user->organizer;
 
         if (!$organizer) {
-            return response()->json([
-                'message' =>
-                'Organizer profile not found.',
-            ], 404);
+            return response()->json(['message' => 'Organizer profile not found.'], 404);
         }
 
-        $tags = $organizer->tags ?? [];
+        $tags = $organizer->tags;
+
+        if (is_string($tags)) {
+            $tags = json_decode($tags, true) ?? [];
+        }
+
+        $tags = $tags ?? [];
 
         if (empty($tags)) {
             return response()->json([
+                'message' => 'Matching inquiries retrieved successfully.',
                 'data' => [],
             ]);
         }
 
-        $inquiries = Inquiry::query()
-            ->with([
-                'client.user',
-            ])
-            ->withCount('quotations')
-
-            ->whereIn(
-                'event_type',
-                $tags
-            )
-            ->whereIn(
-                'status',
-                [
-                    'open',
-                    'receiving_quotations',
-                ]
-            )
-
+        $inquiries = Inquiry::whereIn('event_type', $tags)
+            ->whereIn('status', ['open', 'receiving_quotations'])
+            ->whereDoesntHave('quotations', function ($query) use ($organizer) {
+                $query->where('organizer_id', $organizer->id);
+            })
             ->latest()
             ->get();
 
         return response()->json([
-            'data' =>
-            $inquiries,
+            'message' => 'Matching inquiries retrieved successfully.',
+            'data' => $inquiries,
         ]);
     }
 }

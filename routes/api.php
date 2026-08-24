@@ -12,6 +12,11 @@ Route::middleware('auth:sanctum')->group(function () {
         [UserController::class, 'me']
     );
 
-    require 'client.php';
-    require 'organizer.php';
+    Route::middleware('role:client')->group(function () {
+        require 'client.php';
+    });
+
+    Route::middleware('role:organizer')->group(function () {
+        require 'organizer.php';
+    });
 });
