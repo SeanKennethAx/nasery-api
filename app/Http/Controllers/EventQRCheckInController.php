@@ -15,7 +15,7 @@ class EventQRCheckInController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -87,7 +87,7 @@ class EventQRCheckInController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -251,7 +251,7 @@ class EventQRCheckInController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 

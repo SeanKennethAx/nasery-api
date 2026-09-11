@@ -13,12 +13,8 @@ class EventActivityController extends Controller
         $activities = EventActivity::query()
             ->whereHas(
                 'event',
-                function ($query) use ($request) {
-                    $query->where(
-                        'organizer_id',
-                        $request->user()->id
-                    );
-                }
+                fn ($query) =>
+                    $query->managedBy($request->user())
             )
             ->with([
                 'event:id,name,event_type,event_date,location,status',
@@ -36,8 +32,7 @@ class EventActivityController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -56,8 +51,7 @@ class EventActivityController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -125,8 +119,7 @@ class EventActivityController extends Controller
         EventActivity $activity
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -202,8 +195,7 @@ class EventActivityController extends Controller
         EventActivity $activity
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 

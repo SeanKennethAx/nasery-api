@@ -5,18 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
     public function index(Request $request)
     {
         $events = Event::query()
-            ->where(
-                'organizer_id',
-                $request->user()->id
-            )
+            ->managedBy($request->user())
             ->with([
                 'ticketTypes',
+                'eventLocation',
+                'registrationSettings',
             ])
             ->latest()
             ->get();
@@ -161,12 +161,47 @@ class EventController extends Controller
                     $validated['ticket_types']
                 );
 
+                $location = $validated['location'] ?? null;
+                $settings = collect($validated)->only([
+                    'public_registration',
+                    'require_approval',
+                    'waitlist_enabled',
+                    'contact_name',
+                    'contact_email',
+                    'contact_phone',
+                ])->all();
+
+                unset(
+                    $validated['location'],
+                    $validated['public_registration'],
+                    $validated['require_approval'],
+                    $validated['waitlist_enabled'],
+                    $validated['contact_name'],
+                    $validated['contact_email'],
+                    $validated['contact_phone'],
+                );
+
+                $organizer = $request->user()->organizer;
+
+                abort_unless($organizer, 404, 'Organizer profile not found.');
+
                 $event = Event::create([
                     ...$validated,
 
                     'organizer_id' =>
-                    $request->user()->id,
+                    $organizer->id,
                 ]);
+
+                $event->eventLocation()->create([
+                    'venue_name' => $location,
+                    'venue_address' => $location,
+                ]);
+
+                if (!empty($settings['public_registration'])) {
+                    $settings['public_registration_token'] = Str::random(48);
+                }
+
+                $event->registrationSettings()->create($settings);
 
                 foreach (
                     $ticketTypes as $ticketType
@@ -191,6 +226,8 @@ class EventController extends Controller
 
         $event->load([
             'ticketTypes',
+            'eventLocation',
+            'registrationSettings',
         ]);
 
         return response()->json([
@@ -210,13 +247,14 @@ class EventController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
         $event->load([
             'ticketTypes',
+            'eventLocation',
+            'registrationSettings',
         ]);
 
         return response()->json([
@@ -229,8 +267,7 @@ class EventController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -367,9 +404,51 @@ class EventController extends Controller
                     $validated['ticket_types']
                 );
 
+                $hasLocation = array_key_exists('location', $validated);
+                $location = $validated['location'] ?? null;
+                $settings = collect($validated)->only([
+                    'public_registration',
+                    'require_approval',
+                    'waitlist_enabled',
+                    'contact_name',
+                    'contact_email',
+                    'contact_phone',
+                ])->all();
+
+                unset(
+                    $validated['location'],
+                    $validated['public_registration'],
+                    $validated['require_approval'],
+                    $validated['waitlist_enabled'],
+                    $validated['contact_name'],
+                    $validated['contact_email'],
+                    $validated['contact_phone'],
+                );
+
                 $event->update(
                     $validated
                 );
+
+                if ($hasLocation) {
+                    $event->eventLocation()->updateOrCreate(
+                        ['event_id' => $event->id],
+                        ['venue_name' => $location, 'venue_address' => $location]
+                    );
+                }
+
+                if ($settings) {
+                    if (
+                        !empty($settings['public_registration']) &&
+                        !$event->registrationSettings?->public_registration_token
+                    ) {
+                        $settings['public_registration_token'] = Str::random(48);
+                    }
+
+                    $event->registrationSettings()->updateOrCreate(
+                        ['event_id' => $event->id],
+                        $settings
+                    );
+                }
 
                 if (!$hasTicketTypes) {
                     return;
@@ -432,6 +511,8 @@ class EventController extends Controller
 
         $event->load([
             'ticketTypes',
+            'eventLocation',
+            'registrationSettings',
         ]);
 
         return response()->json([

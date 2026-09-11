@@ -15,12 +15,6 @@ class UserService
     ) {}
 
 
-    /**
-     * Register a new user.
-     *
-     * Email, phone, and address
-     * are all required during registration.
-     */
     public function register(array $data): User
     {
         return DB::transaction(function () use ($data) {
@@ -54,7 +48,31 @@ class UserService
 
             if ($data['role'] === 'organizer') {
                 $this->userRepository->createOrganizer(
-                    $user->id
+                    $user->id,
+                    [
+                        'location' =>
+                        $data['location']
+                            ?? $data['address'],
+
+                        'google_place_id' =>
+                        $data['google_place_id']
+                            ?? null,
+
+                        'latitude' =>
+                        isset($data['latitude'])
+                            ? (float) $data['latitude']
+                            : null,
+
+                        'longitude' =>
+                        isset($data['longitude'])
+                            ? (float) $data['longitude']
+                            : null,
+
+                        'service_radius_km' =>
+                        isset($data['service_radius_km'])
+                            ? (int) $data['service_radius_km']
+                            : 25,
+                    ]
                 );
             }
 
@@ -118,9 +136,11 @@ class UserService
             ]);
         }
 
+
         $user->load([
             'client',
             'organizer',
+            'teamMember',
         ]);
 
 
@@ -158,6 +178,12 @@ class UserService
                 'address' =>
                 $user->address,
 
+                'avatar_url' =>
+                $user->avatar_path ? url(\Illuminate\Support\Facades\Storage::url($user->avatar_path)) : null,
+
+                'cover_url' =>
+                $user->cover_path ? url(\Illuminate\Support\Facades\Storage::url($user->cover_path)) : null,
+
                 'role' =>
                 $user->role,
 
@@ -166,6 +192,41 @@ class UserService
 
                 'organizer_id' =>
                 $user->organizer?->id,
+
+                'team_member_id' =>
+                $user->teamMember?->id,
+
+                'organizer' =>
+                $user->organizer
+                    ? [
+                        'id' =>
+                        $user->organizer->id,
+
+                        'company_name' =>
+                        $user->organizer->company_name,
+
+                        'location' =>
+                        $user->organizer->location,
+
+                        'google_place_id' =>
+                        $user->organizer->google_place_id,
+
+                        'latitude' =>
+                        $user->organizer->latitude !== null
+                            ? (float) $user->organizer->latitude
+                            : null,
+
+                        'longitude' =>
+                        $user->organizer->longitude !== null
+                            ? (float) $user->organizer->longitude
+                            : null,
+
+                        'service_radius_km' =>
+                        $user->organizer->service_radius_km !== null
+                            ? (int) $user->organizer->service_radius_km
+                            : 25,
+                    ]
+                    : null,
             ],
         ];
     }

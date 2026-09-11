@@ -16,19 +16,27 @@ class Inquiry extends Model
         'event_title',
         'event_type',
         'event_date',
+        'start_time',
+        'end_time',
         'location',
         'expected_guests',
         'budget_range',
         'additional_details',
         'status',
         'awarded_quotation_id',
+        'venue_name',
+        'venue_address',
+        'google_place_id',
+        'latitude',
+        'longitude',
     ];
-
     protected $casts = [
         'client_id' => 'integer',
         'event_date' => 'date',
         'expected_guests' => 'integer',
         'awarded_quotation_id' => 'integer',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     public function client(): BelongsTo
@@ -54,10 +62,18 @@ class Inquiry extends Model
             'inquiry_id'
         );
     }
+
     public function event(): HasOne
     {
         return $this->hasOne(
             Event::class,
+            'inquiry_id'
+        );
+    }
+    public function organizerReviews(): HasMany
+    {
+        return $this->hasMany(
+            OrganizerReview::class,
             'inquiry_id'
         );
     }

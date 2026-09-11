@@ -14,8 +14,7 @@ class EventAttendeeController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -50,6 +49,9 @@ class EventAttendeeController extends Controller
                     'source' =>
                     $ticket->source,
 
+                    'attendee_category' =>
+                    $ticket->attendee_category,
+
                     'payment_status' =>
                     $ticket->payment_status,
 
@@ -76,8 +78,7 @@ class EventAttendeeController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -99,6 +100,11 @@ class EventAttendeeController extends Controller
                     'required',
                     'integer',
                     'exists:event_ticket_types,id',
+                ],
+
+                'attendee_category' => [
+                    'required',
+                    'in:invited,free,paid',
                 ],
 
                 'payment_status' => [
@@ -165,8 +171,13 @@ class EventAttendeeController extends Controller
                 'source' =>
                 'organizer',
 
+                'attendee_category' =>
+                $validated['attendee_category'],
+
                 'payment_status' =>
-                $validated['payment_status'] ?? 'paid',
+                $validated['attendee_category'] === 'paid'
+                    ? ($validated['payment_status'] ?? 'pending')
+                    : null,
 
                 'status' =>
                 'valid',
@@ -218,6 +229,9 @@ class EventAttendeeController extends Controller
                 'source' =>
                 $ticket->source,
 
+                'attendee_category' =>
+                $ticket->attendee_category,
+
                 'payment_status' =>
                 $ticket->payment_status,
 
@@ -238,8 +252,7 @@ class EventAttendeeController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id ===
-                $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 

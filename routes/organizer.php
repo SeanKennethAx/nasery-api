@@ -8,7 +8,9 @@ use App\Http\Controllers\EventQRCheckInController;
 use App\Http\Controllers\EventWalkInController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\OrganizerController;
+use App\Http\Controllers\OrganizerReviewController;
 use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\TeamMemberController;
 use Illuminate\Support\Facades\Route;
 
 Route::get(
@@ -16,9 +18,17 @@ Route::get(
     [OrganizerController::class, 'profile']
 );
 
+Route::get('/organizer/team-members', [TeamMemberController::class, 'organizerIndex']);
+Route::post('/organizer/team-members', [TeamMemberController::class, 'store']);
+
 Route::put(
     '/organizer/profile',
     [OrganizerController::class, 'updateProfile']
+);
+
+Route::get(
+    '/organizer/reviews',
+    [OrganizerReviewController::class, 'organizerReviews']
 );
 
 Route::get(

@@ -58,6 +58,9 @@ class ClientEventTicketController extends Controller
                     'source' =>
                     $ticket->source,
 
+                    'attendee_category' =>
+                    $ticket->attendee_category,
+
                     'payment_status' =>
                     $ticket->payment_status,
 
@@ -180,8 +183,15 @@ class ClientEventTicketController extends Controller
                 'source' =>
                 'online',
 
+                'attendee_category' =>
+                (float) $ticketType->price > 0
+                    ? 'paid'
+                    : 'free',
+
                 'payment_status' =>
-                'paid',
+                (float) $ticketType->price > 0
+                    ? 'paid'
+                    : null,
 
                 'status' =>
                 'valid',
@@ -232,6 +242,9 @@ class ClientEventTicketController extends Controller
 
                 'source' =>
                 $ticket->source,
+
+                'attendee_category' =>
+                $ticket->attendee_category,
 
                 'payment_status' =>
                 $ticket->payment_status,
@@ -301,6 +314,9 @@ class ClientEventTicketController extends Controller
 
                 'source' =>
                 $ticket->source,
+
+                'attendee_category' =>
+                $ticket->attendee_category,
 
                 'payment_status' =>
                 $ticket->payment_status,

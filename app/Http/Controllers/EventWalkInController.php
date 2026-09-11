@@ -16,7 +16,7 @@ class EventWalkInController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -36,7 +36,7 @@ class EventWalkInController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -86,7 +86,7 @@ class EventWalkInController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -189,7 +189,7 @@ class EventWalkInController extends Controller
         EventWalkIn $walkIn
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -278,6 +278,9 @@ class EventWalkInController extends Controller
                         'source' =>
                         'walk_in',
 
+                        'attendee_category' =>
+                        'paid',
+
                         'payment_status' =>
                         'paid',
 
@@ -309,7 +312,7 @@ class EventWalkInController extends Controller
         EventWalkIn $walkIn
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 

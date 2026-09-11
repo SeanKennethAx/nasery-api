@@ -24,10 +24,27 @@ class UserRepository
     }
 
     public function createOrganizer(
-        int $userId
+        int $userId,
+        array $data = []
     ): Organizer {
         return Organizer::create([
-            'user_id' => $userId,
+            'user_id' =>
+            $userId,
+
+            'location' =>
+            $data['location'] ?? null,
+
+            'google_place_id' =>
+            $data['google_place_id'] ?? null,
+
+            'latitude' =>
+            $data['latitude'] ?? null,
+
+            'longitude' =>
+            $data['longitude'] ?? null,
+
+            'service_radius_km' =>
+            $data['service_radius_km'] ?? 25,
         ]);
     }
 

@@ -8,9 +8,8 @@ use Illuminate\Http\Request;
 
 class InquiryController extends Controller
 {
-    public function store(
-        Request $request
-    ): JsonResponse {
+    public function store(Request $request): JsonResponse
+    {
         $validated = $request->validate([
             'event_title' => [
                 'nullable',
@@ -27,12 +26,58 @@ class InquiryController extends Controller
             'event_date' => [
                 'required',
                 'date',
+                'after_or_equal:today',
+            ],
+
+            'start_time' => [
+                'required',
+                'date_format:H:i',
+            ],
+
+            'end_time' => [
+                'required',
+                'date_format:H:i',
+                'after:start_time',
             ],
 
             'location' => [
-                'required',
+                'nullable',
+                'string',
+                'max:500',
+                'required_without:venue_address',
+            ],
+
+            'venue_name' => [
+                'nullable',
                 'string',
                 'max:255',
+            ],
+
+            'venue_address' => [
+                'nullable',
+                'string',
+                'max:1000',
+                'required_without:location',
+            ],
+
+            'google_place_id' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'latitude' => [
+                'nullable',
+                'numeric',
+                'between:-90,90',
+                'required_with:google_place_id,longitude',
+            ],
+
+            'longitude' => [
+                'nullable',
+                'numeric',
+                'between:-180,180',
+                'required_with:google_place_id,latitude',
             ],
 
             'expected_guests' => [
@@ -57,15 +102,13 @@ class InquiryController extends Controller
 
         if (!$user) {
             return response()->json([
-                'message' =>
-                'Unauthenticated.',
+                'message' => 'Unauthenticated.',
             ], 401);
         }
 
         if ($user->role !== 'client') {
             return response()->json([
-                'message' =>
-                'Only clients can create inquiries.',
+                'message' => 'Only clients can create inquiries.',
             ], 403);
         }
 
@@ -73,14 +116,21 @@ class InquiryController extends Controller
 
         if (!$client) {
             return response()->json([
-                'message' =>
-                'Client profile not found.',
+                'message' => 'Client profile not found.',
             ], 404);
         }
 
+        $venueAddress =
+            $validated['venue_address']
+            ?? $validated['location']
+            ?? null;
+
+        $location =
+            $validated['location']
+            ?? $venueAddress;
+
         $inquiry = Inquiry::create([
-            'client_id' =>
-            $client->id,
+            'client_id' => $client->id,
 
             'event_title' =>
             $validated['event_title']
@@ -92,8 +142,33 @@ class InquiryController extends Controller
             'event_date' =>
             $validated['event_date'],
 
+            'start_time' =>
+            $validated['start_time'],
+
+            'end_time' =>
+            $validated['end_time'],
+
             'location' =>
-            $validated['location'],
+            $location,
+
+            'venue_name' =>
+            $validated['venue_name']
+                ?? null,
+
+            'venue_address' =>
+            $venueAddress,
+
+            'google_place_id' =>
+            $validated['google_place_id']
+                ?? null,
+
+            'latitude' =>
+            $validated['latitude']
+                ?? null,
+
+            'longitude' =>
+            $validated['longitude']
+                ?? null,
 
             'expected_guests' =>
             $validated['expected_guests'],
@@ -105,55 +180,90 @@ class InquiryController extends Controller
             $validated['additional_details']
                 ?? null,
 
-            'status' =>
-            'open',
+            'status' => 'open',
         ]);
 
         return response()->json([
-            'message' =>
-            'Inquiry submitted successfully.',
-
-            'data' =>
-            $inquiry,
+            'message' => 'Inquiry submitted successfully.',
+            'data' => $inquiry,
         ], 201);
     }
-    public function clientInquiries(Request $request): JsonResponse
-    {
+
+    public function clientInquiries(
+        Request $request
+    ): JsonResponse {
         $user = $request->user();
+
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        if ($user->role !== 'client') {
+            return response()->json([
+                'message' => 'Only clients can view client inquiries.',
+            ], 403);
         }
 
         $client = $user->client;
+
         if (!$client) {
-            return response()->json(['message' => 'Client profile not found.'], 404);
+            return response()->json([
+                'message' => 'Client profile not found.',
+            ], 404);
         }
 
-        $inquiries = Inquiry::where('client_id', $client->id)->latest()->get();
+        $inquiries = Inquiry::query()
+            ->where(
+                'client_id',
+                $client->id
+            )
+            ->with([
+                'awardedQuotation',
+                'event',
+            ])
+            ->latest()
+            ->get();
 
         return response()->json([
             'message' => 'Inquiries retrieved successfully.',
             'data' => $inquiries,
         ]);
     }
-    public function matching(Request $request): JsonResponse
-    {
+
+    public function matching(
+        Request $request
+    ): JsonResponse {
         $user = $request->user();
 
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        if ($user->role !== 'organizer') {
+            return response()->json([
+                'message' => 'Only organizers can view matching inquiries.',
+            ], 403);
         }
 
         $organizer = $user->organizer;
 
         if (!$organizer) {
-            return response()->json(['message' => 'Organizer profile not found.'], 404);
+            return response()->json([
+                'message' => 'Organizer profile not found.',
+            ], 404);
         }
 
         $tags = $organizer->tags;
 
         if (is_string($tags)) {
-            $tags = json_decode($tags, true) ?? [];
+            $tags = json_decode(
+                $tags,
+                true
+            ) ?? [];
         }
 
         $tags = $tags ?? [];
@@ -165,11 +275,27 @@ class InquiryController extends Controller
             ]);
         }
 
-        $inquiries = Inquiry::whereIn('event_type', $tags)
-            ->whereIn('status', ['open', 'receiving_quotations'])
-            ->whereDoesntHave('quotations', function ($query) use ($organizer) {
-                $query->where('organizer_id', $organizer->id);
-            })
+        $inquiries = Inquiry::query()
+            ->whereIn(
+                'event_type',
+                $tags
+            )
+            ->whereIn(
+                'status',
+                [
+                    'open',
+                    'receiving_quotations',
+                ]
+            )
+            ->whereDoesntHave(
+                'quotations',
+                function ($query) use ($organizer) {
+                    $query->where(
+                        'organizer_id',
+                        $organizer->id
+                    );
+                }
+            )
             ->latest()
             ->get();
 

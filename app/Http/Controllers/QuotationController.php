@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\ClientProfile;
 use App\Models\Event;
+use App\Models\EventRegistrationSetting;
+use App\Models\EventTicket;
 use App\Models\Inquiry;
 use App\Models\Organizer;
 use App\Models\Quotation;
@@ -11,12 +13,10 @@ use App\Notifications\QuotationReceivedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class QuotationController extends Controller
 {
-    /**
-     * Organizer submits a quotation.
-     */
     public function store(
         Request $request
     ): JsonResponse {
@@ -64,7 +64,8 @@ class QuotationController extends Controller
 
         if (!$user) {
             return response()->json([
-                'message' => 'Unauthenticated.',
+                'message' =>
+                'Unauthenticated.',
             ], 401);
         }
 
@@ -75,10 +76,11 @@ class QuotationController extends Controller
             ], 403);
         }
 
-        $organizer = Organizer::where(
-            'user_id',
-            $user->id
-        )->first();
+        $organizer =
+            Organizer::where(
+                'user_id',
+                $user->id
+            )->first();
 
         if (!$organizer) {
             return response()->json([
@@ -87,9 +89,10 @@ class QuotationController extends Controller
             ], 404);
         }
 
-        $inquiry = Inquiry::find(
-            $validated['inquiry_id']
-        );
+        $inquiry =
+            Inquiry::find(
+                $validated['inquiry_id']
+            );
 
         if (!$inquiry) {
             return response()->json([
@@ -132,71 +135,72 @@ class QuotationController extends Controller
             ], 422);
         }
 
-        $quotation = DB::transaction(
-            function () use (
-                $validated,
-                $organizer,
-                $inquiry
-            ) {
-                $quotation =
-                    Quotation::create([
-                        'inquiry_id' =>
-                        $validated['inquiry_id'],
-
-                        'organizer_id' =>
-                        $organizer->id,
-
-                        'quotation_amount' =>
-                        $validated['quotation_amount'],
-
-                        'package_name' =>
-                        $validated['package_name']
-                            ?? null,
-
-                        'timeline' =>
-                        $validated['timeline']
-                            ?? null,
-
-                        'quotation_details' =>
-                        $validated['quotation_details']
-                            ?? null,
-
-                        'quotation_status' =>
-                        'pending',
-                    ]);
-
-                foreach (
-                    $validated['inclusions'] ?? []
-                    as $description
+        $quotation =
+            DB::transaction(
+                function () use (
+                    $validated,
+                    $organizer,
+                    $inquiry
                 ) {
-                    $description =
-                        trim($description);
+                    $quotation =
+                        Quotation::create([
+                            'inquiry_id' =>
+                            $validated['inquiry_id'],
 
-                    if (!$description) {
-                        continue;
+                            'organizer_id' =>
+                            $organizer->id,
+
+                            'quotation_amount' =>
+                            $validated['quotation_amount'],
+
+                            'package_name' =>
+                            $validated['package_name']
+                                ?? null,
+
+                            'timeline' =>
+                            $validated['timeline']
+                                ?? null,
+
+                            'quotation_details' =>
+                            $validated['quotation_details']
+                                ?? null,
+
+                            'quotation_status' =>
+                            'pending',
+                        ]);
+
+                    foreach (
+                        $validated['inclusions'] ?? []
+                        as $description
+                    ) {
+                        $description =
+                            trim($description);
+
+                        if (!$description) {
+                            continue;
+                        }
+
+                        $quotation
+                            ->inclusions()
+                            ->create([
+                                'description' =>
+                                $description,
+                            ]);
                     }
 
-                    $quotation
-                        ->inclusions()
-                        ->create([
-                            'description' =>
-                            $description,
+                    if (
+                        $inquiry->status ===
+                        'open'
+                    ) {
+                        $inquiry->update([
+                            'status' =>
+                            'receiving_quotations',
                         ]);
-                }
+                    }
 
-                if (
-                    $inquiry->status ===
-                    'open'
-                ) {
-                    $inquiry->update([
-                        'status' =>
-                        'receiving_quotations',
-                    ]);
+                    return $quotation;
                 }
-
-                return $quotation;
-            }
-        );
+            );
 
         $inquiry->loadMissing(
             'client.user'
@@ -227,6 +231,7 @@ class QuotationController extends Controller
             $quotation,
         ], 201);
     }
+
     public function inquiryQuotations(
         Request $request,
         Inquiry $inquiry
@@ -289,6 +294,7 @@ class QuotationController extends Controller
             $quotations,
         ]);
     }
+
     public function accept(
         Request $request,
         Quotation $quotation
@@ -430,6 +436,7 @@ class QuotationController extends Controller
             ],
         ]);
     }
+
     public function startPlanning(
         Request $request,
         Quotation $quotation
@@ -532,6 +539,9 @@ class QuotationController extends Controller
                 'quotation.inclusions',
                 'organizer',
                 'client',
+                'ticketTypes',
+                'eventLocation',
+                'registrationSettings',
             ]);
 
             return response()->json([
@@ -554,7 +564,7 @@ class QuotationController extends Controller
                     $quotation,
                     $inquiry
                 ) {
-                    return Event::create([
+                    $event = Event::create([
                         'inquiry_id' =>
                         $inquiry->id,
 
@@ -570,8 +580,8 @@ class QuotationController extends Controller
                         'name' =>
                         $inquiry->event_title
                             ?: (
-                                $inquiry->event_type
-                                . ' Event'
+                                $inquiry->event_type .
+                                ' Event'
                             ),
 
                         'event_type' =>
@@ -584,21 +594,30 @@ class QuotationController extends Controller
                         'event_date' =>
                         $inquiry->event_date,
 
-                        'location' =>
-                        $inquiry->location,
-
                         'expected_guests' =>
                         $inquiry->expected_guests,
 
                         'start_time' =>
-                        null,
+                        $inquiry->start_time,
 
                         'end_time' =>
-                        null,
+                        $inquiry->end_time,
 
                         'status' =>
                         'draft',
+
                     ]);
+
+                    $event->eventLocation()->create([
+                        'venue_name' => $inquiry->location,
+                        'venue_address' => $inquiry->location,
+                    ]);
+
+                    $event->registrationSettings()->create([
+                        'public_registration' => false,
+                    ]);
+
+                    return $event;
                 }
             );
 
@@ -607,6 +626,9 @@ class QuotationController extends Controller
             'quotation.inclusions',
             'organizer',
             'client',
+            'ticketTypes',
+            'eventLocation',
+            'registrationSettings',
         ]);
 
         return response()->json([
@@ -622,6 +644,7 @@ class QuotationController extends Controller
             ],
         ], 201);
     }
+
     public function organizerQuotations(
         Request $request
     ): JsonResponse {
@@ -676,6 +699,7 @@ class QuotationController extends Controller
             $quotations,
         ]);
     }
+
     public function eventData(
         Request $request,
         Quotation $quotation
@@ -725,7 +749,9 @@ class QuotationController extends Controller
         $quotation->load([
             'inquiry.client.user',
             'inclusions',
-            'event',
+            'event.ticketTypes',
+            'event.eventLocation',
+            'event.registrationSettings',
         ]);
 
         $inquiry =
@@ -813,7 +839,8 @@ class QuotationController extends Controller
         Request $request,
         Inquiry $inquiry
     ): JsonResponse {
-        $user = $request->user();
+        $user =
+            $request->user();
 
         if (!$user) {
             return response()->json([
@@ -879,7 +906,8 @@ class QuotationController extends Controller
                 'organizer.user',
                 'inclusions',
                 'event.ticketTypes',
-            ])->find(
+            ])
+            ->find(
                 $inquiry->awarded_quotation_id
             );
 
@@ -963,6 +991,104 @@ class QuotationController extends Controller
             ]);
         }
 
+        $event =
+            $quotation->event;
+        if (
+            $event->public_registration &&
+            !$event->public_registration_token
+        ) {
+            do {
+                $registrationToken =
+                    Str::random(64);
+            } while (
+                EventRegistrationSetting::query()
+                ->where(
+                    'public_registration_token',
+                    $registrationToken
+                )
+                ->exists()
+            );
+
+            $event->registrationSettings()->updateOrCreate(
+                ['event_id' => $event->id],
+                ['public_registration_token' => $registrationToken]
+            );
+
+            $event->refresh();
+
+            $event->load(['ticketTypes', 'eventLocation', 'registrationSettings']);
+        }
+        $ticketTypes =
+            $event
+            ->ticketTypes
+            ->map(
+                function ($ticketType) use ($event) {
+                    $issued =
+                        EventTicket::query()
+                        ->where(
+                            'event_id',
+                            $event->id
+                        )
+                        ->where(
+                            'event_ticket_type_id',
+                            $ticketType->id
+                        )
+                        ->where(
+                            'status',
+                            '!=',
+                            'cancelled'
+                        )
+                        ->count();
+
+                    $remaining =
+                        $ticketType->capacity > 0
+                        ? max(
+                            $ticketType->capacity -
+                                $issued,
+                            0
+                        )
+                        : null;
+
+                    $soldOut =
+                        $ticketType->capacity > 0 &&
+                        $issued >=
+                        $ticketType->capacity;
+
+                    return [
+                        'id' =>
+                        $ticketType->id,
+
+                        'event_id' =>
+                        $ticketType->event_id,
+
+                        'name' =>
+                        $ticketType->name,
+
+                        'price' =>
+                        $ticketType->price,
+
+                        'capacity' =>
+                        $ticketType->capacity,
+
+                        'issued' =>
+                        $issued,
+
+                        'remaining' =>
+                        $remaining,
+
+                        'sold_count' =>
+                        $issued,
+
+                        'remaining_capacity' =>
+                        $remaining,
+
+                        'sold_out' =>
+                        $soldOut,
+                    ];
+                }
+            )
+            ->values();
+
         return response()->json([
             'message' =>
             'Event details retrieved successfully.',
@@ -1029,8 +1155,64 @@ class QuotationController extends Controller
                 'organizer' =>
                 $quotation->organizer,
 
-                'event' =>
-                $quotation->event,
+                'event' => [
+                    'id' =>
+                    $event->id,
+
+                    'name' =>
+                    $event->name,
+
+                    'event_type' =>
+                    $event->event_type,
+
+                    'description' =>
+                    $event->description,
+
+                    'event_date' =>
+                    $event->event_date,
+
+                    'location' =>
+                    $event->location,
+
+                    'expected_guests' =>
+                    $event->expected_guests,
+
+                    'start_time' =>
+                    $event->start_time,
+
+                    'end_time' =>
+                    $event->end_time,
+
+                    'status' =>
+                    $event->status,
+
+                    'public_registration' =>
+                    (bool)
+                    $event->public_registration,
+
+                    'public_registration_token' =>
+                    $event->public_registration_token,
+
+                    'require_approval' =>
+                    (bool)
+                    $event->require_approval,
+
+                    'waitlist_enabled' =>
+                    (bool)
+                    $event->waitlist_enabled,
+
+                    'contact_name' =>
+                    $event->contact_name,
+
+                    'contact_email' =>
+                    $event->contact_email,
+
+                    'contact_phone' =>
+                    $event->contact_phone,
+
+                    'ticket_types' =>
+                    $ticketTypes,
+                ],
             ],
         ]);
     }

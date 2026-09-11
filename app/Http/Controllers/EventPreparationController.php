@@ -13,13 +13,14 @@ class EventPreparationController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
         return response()->json([
             'data' => $event
                 ->preparationItems()
+                ->with(['assignedTeamMember.user:id,firstname,lastname,email', 'completedBy:id,firstname,lastname'])
                 ->orderBy('id')
                 ->get(),
         ]);
@@ -30,7 +31,7 @@ class EventPreparationController extends Controller
         Event $event
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -40,7 +41,14 @@ class EventPreparationController extends Controller
                 'string',
                 'max:255',
             ],
+            'assigned_team_member_id' => ['nullable', 'integer', 'exists:team_members,id'],
         ]);
+
+        if (!empty($validated['assigned_team_member_id'])) {
+            $belongsToOrganizer = $request->user()->organizer
+                ?->teamMembers()->whereKey($validated['assigned_team_member_id'])->exists();
+            abort_unless($belongsToOrganizer, 422, 'Select a member of your organizer team.');
+        }
 
         $item = $event
             ->preparationItems()
@@ -50,6 +58,7 @@ class EventPreparationController extends Controller
 
                 'is_completed' =>
                 false,
+                'assigned_team_member_id' => $validated['assigned_team_member_id'] ?? null,
             ]);
 
         return response()->json([
@@ -57,7 +66,7 @@ class EventPreparationController extends Controller
             'Checklist item added successfully.',
 
             'data' =>
-            $item,
+            $item->load('assignedTeamMember.user'),
         ], 201);
     }
 
@@ -67,7 +76,7 @@ class EventPreparationController extends Controller
         EventPreparationItem $item
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 
@@ -88,7 +97,35 @@ class EventPreparationController extends Controller
                 'sometimes',
                 'boolean',
             ],
+            'assigned_team_member_id' => ['sometimes', 'nullable', 'integer', 'exists:team_members,id'],
+            'review_status' => ['sometimes', 'in:pending,verified,changes_requested'],
         ]);
+
+        if (array_key_exists('assigned_team_member_id', $validated) && $validated['assigned_team_member_id']) {
+            abort_unless(
+                $request->user()->organizer?->teamMembers()->whereKey($validated['assigned_team_member_id'])->exists(),
+                422,
+                'Select a member of your organizer team.'
+            );
+        }
+
+        if (array_key_exists('review_status', $validated)) {
+            abort_unless($item->is_completed, 422, 'Only completed work can be reviewed.');
+            $validated['reviewed_at'] = now();
+            $validated['is_completed'] = $validated['review_status'] === 'verified';
+        }
+
+        if (
+            array_key_exists('is_completed', $validated) &&
+            !$validated['is_completed'] &&
+            !$request->has('review_status')
+        ) {
+            $validated['completed_at'] = null;
+            $validated['completed_by_user_id'] = null;
+            $validated['completion_note'] = null;
+            $validated['review_status'] = 'pending';
+            $validated['reviewed_at'] = null;
+        }
 
         $item->update($validated);
 
@@ -97,7 +134,7 @@ class EventPreparationController extends Controller
             'Checklist item updated successfully.',
 
             'data' =>
-            $item,
+            $item->load(['assignedTeamMember.user', 'completedBy']),
         ]);
     }
 
@@ -107,7 +144,7 @@ class EventPreparationController extends Controller
         EventPreparationItem $item
     ) {
         abort_unless(
-            $event->organizer_id === $request->user()->id,
+            $event->isManagedBy($request->user()),
             403
         );
 

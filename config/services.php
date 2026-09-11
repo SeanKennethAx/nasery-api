@@ -34,5 +34,18 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'paymongo' => [
+        'public_key' =>
+        env('PAYMONGO_PUBLIC_KEY'),
+
+        'secret_key' =>
+        env('PAYMONGO_SECRET_KEY'),
+
+        'success_url' =>
+        env('PAYMONGO_SUCCESS_URL'),
+
+        'cancel_url' =>
+        env('PAYMONGO_CANCEL_URL'),
+    ],
 
 ];
