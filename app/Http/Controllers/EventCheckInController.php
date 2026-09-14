@@ -20,38 +20,36 @@ class EventCheckInController extends Controller
 
         $registered =
             $event->tickets()
-            ->count();
+                ->count();
 
         $checkedIn =
             $event->tickets()
-            ->whereNotNull(
-                'checked_in_at'
-            )
-            ->count();
+                ->whereNotNull(
+                    'checked_in_at'
+                )
+                ->count();
 
         $recent =
             $event->tickets()
-            ->with('ticketType')
-            ->whereNotNull(
-                'checked_in_at'
-            )
-            ->latest('checked_in_at')
-            ->limit(10)
-            ->get();
+                ->with('ticketType')
+                ->whereNotNull(
+                    'checked_in_at'
+                )
+                ->latest('checked_in_at')
+                ->limit(10)
+                ->get();
 
         return response()->json([
             'data' => [
-                'registered' =>
-                $registered,
+                'registered' => $registered,
 
-                'checked_in' =>
-                $checkedIn,
+                'checked_in' => $checkedIn,
 
-                'recent_check_ins' =>
-                $recent,
+                'recent_check_ins' => $recent,
             ],
         ]);
     }
+
     public function scan(
         Request $request,
         Event $event
@@ -85,34 +83,29 @@ class EventCheckInController extends Controller
             ) {
                 $ticket =
                     EventTicket::query()
-                    ->where(
-                        'qr_token',
-                        $token
-                    )
-                    ->lockForUpdate()
-                    ->first();
+                        ->where(
+                            'qr_token',
+                            $token
+                        )
+                        ->lockForUpdate()
+                        ->first();
 
-                if (!$ticket) {
+                if (! $ticket) {
                     return response()->json([
-                        'message' =>
-                        'Invalid QR ticket.',
+                        'message' => 'Invalid QR ticket.',
 
-                        'code' =>
-                        'INVALID_TICKET',
+                        'code' => 'INVALID_TICKET',
                     ], 404);
                 }
-
 
                 if (
                     $ticket->event_id !==
                     $event->id
                 ) {
                     return response()->json([
-                        'message' =>
-                        'This ticket belongs to another event.',
+                        'message' => 'This ticket belongs to another event.',
 
-                        'code' =>
-                        'WRONG_EVENT',
+                        'code' => 'WRONG_EVENT',
                     ], 422);
                 }
 
@@ -121,11 +114,16 @@ class EventCheckInController extends Controller
                     'cancelled'
                 ) {
                     return response()->json([
-                        'message' =>
-                        'This ticket has been cancelled.',
+                        'message' => 'This ticket has been cancelled.',
 
-                        'code' =>
-                        'CANCELLED_TICKET',
+                        'code' => 'CANCELLED_TICKET',
+                    ], 422);
+                }
+
+        if (in_array($ticket->status, ['pending_approval', 'payment_pending'], true)) {
+                    return response()->json([
+                        'message' => 'This registration is still awaiting organizer approval.',
+                        'code' => 'PENDING_APPROVAL',
                     ], 422);
                 }
                 if (
@@ -136,25 +134,19 @@ class EventCheckInController extends Controller
                     );
 
                     return response()->json([
-                        'message' =>
-                        'This attendee is already checked in.',
+                        'message' => 'This attendee is already checked in.',
 
-                        'code' =>
-                        'ALREADY_CHECKED_IN',
+                        'code' => 'ALREADY_CHECKED_IN',
 
-                        'data' =>
-                        $ticket,
+                        'data' => $ticket,
                     ], 409);
                 }
                 $ticket->update([
-                    'checked_in_at' =>
-                    now(),
+                    'checked_in_at' => now(),
 
-                    'checked_in_by' =>
-                    $request->user()->id,
+                    'checked_in_by' => $request->user()->id,
 
-                    'status' =>
-                    'used',
+                    'status' => 'used',
                 ]);
 
                 $ticket->load(
@@ -162,14 +154,11 @@ class EventCheckInController extends Controller
                 );
 
                 return response()->json([
-                    'message' =>
-                    'Check-in successful.',
+                    'message' => 'Check-in successful.',
 
-                    'code' =>
-                    'CHECKED_IN',
+                    'code' => 'CHECKED_IN',
 
-                    'data' =>
-                    $ticket,
+                    'data' => $ticket,
                 ]);
             }
         );
@@ -194,37 +183,31 @@ class EventCheckInController extends Controller
 
         $ticket =
             $event->tickets()
-            ->whereKey(
-                $validated['ticket_id']
-            )
-            ->firstOrFail();
+                ->whereKey(
+                    $validated['ticket_id']
+                )
+                ->firstOrFail();
 
         if (
             $ticket->checked_in_at
         ) {
             return response()->json([
-                'message' =>
-                'This attendee is already checked in.',
+                'message' => 'This attendee is already checked in.',
             ], 409);
         }
 
         $ticket->update([
-            'checked_in_at' =>
-            now(),
+            'checked_in_at' => now(),
 
-            'checked_in_by' =>
-            $request->user()->id,
+            'checked_in_by' => $request->user()->id,
 
-            'status' =>
-            'used',
+            'status' => 'used',
         ]);
 
         return response()->json([
-            'message' =>
-            'Manual check-in successful.',
+            'message' => 'Manual check-in successful.',
 
-            'data' =>
-            $ticket->load(
+            'data' => $ticket->load(
                 'ticketType'
             ),
         ]);

@@ -188,8 +188,7 @@ class EventController extends Controller
                 $event = Event::create([
                     ...$validated,
 
-                    'organizer_id' =>
-                    $organizer->id,
+                    'organizer_id' => $organizer->id,
                 ]);
 
                 $event->eventLocation()->create([
@@ -197,7 +196,7 @@ class EventController extends Controller
                     'venue_address' => $location,
                 ]);
 
-                if (!empty($settings['public_registration'])) {
+                if (! empty($settings['public_registration'])) {
                     $settings['public_registration_token'] = Str::random(48);
                 }
 
@@ -209,14 +208,11 @@ class EventController extends Controller
                     $event
                         ->ticketTypes()
                         ->create([
-                            'name' =>
-                            $ticketType['name'],
+                            'name' => $ticketType['name'],
 
-                            'price' =>
-                            $ticketType['price'],
+                            'price' => $ticketType['price'],
 
-                            'capacity' =>
-                            $ticketType['capacity'],
+                            'capacity' => $ticketType['capacity'],
                         ]);
                 }
 
@@ -231,14 +227,11 @@ class EventController extends Controller
         ]);
 
         return response()->json([
-            'message' =>
-            'Event created successfully.',
+            'message' => 'Event created successfully.',
 
-            'data' =>
-            $event,
+            'data' => $event,
 
-            'event' =>
-            $event,
+            'event' => $event,
         ], 201);
     }
 
@@ -438,8 +431,8 @@ class EventController extends Controller
 
                 if ($settings) {
                     if (
-                        !empty($settings['public_registration']) &&
-                        !$event->registrationSettings?->public_registration_token
+                        ! empty($settings['public_registration']) &&
+                        ! $event->registrationSettings?->public_registration_token
                     ) {
                         $settings['public_registration_token'] = Str::random(48);
                     }
@@ -450,9 +443,11 @@ class EventController extends Controller
                     );
                 }
 
-                if (!$hasTicketTypes) {
+                if (! $hasTicketTypes) {
                     return;
                 }
+
+                $retainedTicketTypeIds = [];
 
                 foreach (
                     $ticketTypes as $ticketType
@@ -464,13 +459,13 @@ class EventController extends Controller
                     if ($ticketTypeId) {
                         $existingTicketType =
                             $event
-                            ->ticketTypes()
-                            ->whereKey(
-                                $ticketTypeId
-                            )
-                            ->first();
+                                ->ticketTypes()
+                                ->whereKey(
+                                    $ticketTypeId
+                                )
+                                ->first();
 
-                        if (!$existingTicketType) {
+                        if (! $existingTicketType) {
                             abort(
                                 422,
                                 'One of the ticket types does not belong to this event.'
@@ -478,32 +473,43 @@ class EventController extends Controller
                         }
 
                         $existingTicketType->update([
-                            'name' =>
-                            $ticketType['name'],
+                            'name' => $ticketType['name'],
 
-                            'price' =>
-                            $ticketType['price'],
+                            'price' => $ticketType['price'],
 
-                            'capacity' =>
-                            $ticketType['capacity'],
+                            'capacity' => $ticketType['capacity'],
                         ]);
+
+                        $retainedTicketTypeIds[] = $existingTicketType->id;
 
                         continue;
                     }
 
-                    $event
+                    $existingTicketType = $event
                         ->ticketTypes()
-                        ->create([
-                            'name' =>
-                            $ticketType['name'],
+                        ->whereRaw('LOWER(TRIM(name)) = ?', [
+                            mb_strtolower(trim($ticketType['name'])),
+                        ])
+                        ->where('price', $ticketType['price'])
+                        ->where('capacity', $ticketType['capacity'])
+                        ->first();
 
-                            'price' =>
-                            $ticketType['price'],
+                    $savedTicketType = $existingTicketType
+                        ?? $event->ticketTypes()->create([
+                            'name' => $ticketType['name'],
 
-                            'capacity' =>
-                            $ticketType['capacity'],
+                            'price' => $ticketType['price'],
+
+                            'capacity' => $ticketType['capacity'],
                         ]);
+
+                    $retainedTicketTypeIds[] = $savedTicketType->id;
                 }
+
+                $event
+                    ->ticketTypes()
+                    ->whereNotIn('id', $retainedTicketTypeIds)
+                    ->delete();
             }
         );
 
@@ -516,14 +522,11 @@ class EventController extends Controller
         ]);
 
         return response()->json([
-            'message' =>
-            'Event updated successfully.',
+            'message' => 'Event updated successfully.',
 
-            'data' =>
-            $event,
+            'data' => $event,
 
-            'event' =>
-            $event,
+            'event' => $event,
         ]);
     }
 }

@@ -21,63 +21,51 @@ class EventQRCheckInController extends Controller
 
         $registered =
             $event->tickets()
-            ->count();
+                ->count();
 
         $checkedIn =
             $event->qrCheckIns()
-            ->count();
+                ->count();
 
         $recentCheckIns =
             $event->qrCheckIns()
-            ->with([
-                'ticket.ticketType',
-            ])
-            ->latest('checked_in_at')
-            ->limit(10)
-            ->get()
-            ->map(function ($checkIn) {
-                return [
-                    'id' =>
-                    $checkIn->id,
+                ->with([
+                    'ticket.ticketType',
+                ])
+                ->latest('checked_in_at')
+                ->limit(10)
+                ->get()
+                ->map(function ($checkIn) {
+                    return [
+                        'id' => $checkIn->id,
 
-                    'checked_in_at' =>
-                    $checkIn->checked_in_at,
+                        'checked_in_at' => $checkIn->checked_in_at,
 
-                    'ticket' => [
-                        'id' =>
-                        $checkIn->ticket->id,
+                        'ticket' => [
+                            'id' => $checkIn->ticket->id,
 
-                        'attendee_name' =>
-                        $checkIn->ticket->attendee_name,
+                            'attendee_name' => $checkIn->ticket->attendee_name,
 
-                        'attendee_email' =>
-                        $checkIn->ticket->attendee_email,
+                            'attendee_email' => $checkIn->ticket->attendee_email,
 
-                        'status' =>
-                        $checkIn->ticket->status,
+                            'status' => $checkIn->ticket->status,
 
-                        'source' =>
-                        $checkIn->ticket->source,
+                            'source' => $checkIn->ticket->source,
 
-                        'payment_status' =>
-                        $checkIn->ticket->payment_status,
+                            'payment_status' => $checkIn->ticket->payment_status,
 
-                        'ticket_type' =>
-                        $checkIn->ticket->ticketType,
-                    ],
-                ];
-            });
+                            'ticket_type' => $checkIn->ticket->ticketType,
+                        ],
+                    ];
+                });
 
         return response()->json([
             'data' => [
-                'registered' =>
-                $registered,
+                'registered' => $registered,
 
-                'checked_in' =>
-                $checkedIn,
+                'checked_in' => $checkedIn,
 
-                'recent_check_ins' =>
-                $recentCheckIns,
+                'recent_check_ins' => $recentCheckIns,
             ],
         ]);
     }
@@ -128,20 +116,18 @@ class EventQRCheckInController extends Controller
             ) {
                 $ticket =
                     EventTicket::query()
-                    ->where(
-                        'qr_token',
-                        $qrToken
-                    )
-                    ->lockForUpdate()
-                    ->first();
+                        ->where(
+                            'qr_token',
+                            $qrToken
+                        )
+                        ->lockForUpdate()
+                        ->first();
 
-                if (!$ticket) {
+                if (! $ticket) {
                     return response()->json([
-                        'message' =>
-                        'Invalid QR ticket.',
+                        'message' => 'Invalid QR ticket.',
 
-                        'code' =>
-                        'INVALID_TICKET',
+                        'code' => 'INVALID_TICKET',
                     ], 404);
                 }
 
@@ -150,11 +136,9 @@ class EventQRCheckInController extends Controller
                     $event->id
                 ) {
                     return response()->json([
-                        'message' =>
-                        'This ticket belongs to a different event.',
+                        'message' => 'This ticket belongs to a different event.',
 
-                        'code' =>
-                        'WRONG_EVENT',
+                        'code' => 'WRONG_EVENT',
                     ], 422);
                 }
 
@@ -163,21 +147,26 @@ class EventQRCheckInController extends Controller
                     'cancelled'
                 ) {
                     return response()->json([
-                        'message' =>
-                        'This ticket has been cancelled.',
+                        'message' => 'This ticket has been cancelled.',
 
-                        'code' =>
-                        'CANCELLED_TICKET',
+                        'code' => 'CANCELLED_TICKET',
+                    ], 422);
+                }
+
+        if (in_array($ticket->status, ['pending_approval', 'payment_pending'], true)) {
+                    return response()->json([
+                        'message' => 'This registration is still awaiting organizer approval.',
+                        'code' => 'PENDING_APPROVAL',
                     ], 422);
                 }
 
                 $existingCheckIn =
                     EventQRCheckIn::query()
-                    ->where(
-                        'event_ticket_id',
-                        $ticket->id
-                    )
-                    ->first();
+                        ->where(
+                            'event_ticket_id',
+                            $ticket->id
+                        )
+                        ->first();
 
                 if ($existingCheckIn) {
                     $ticket->load(
@@ -185,14 +174,11 @@ class EventQRCheckInController extends Controller
                     );
 
                     return response()->json([
-                        'message' =>
-                        'This ticket has already been checked in.',
+                        'message' => 'This ticket has already been checked in.',
 
-                        'code' =>
-                        'ALREADY_CHECKED_IN',
+                        'code' => 'ALREADY_CHECKED_IN',
 
-                        'data' =>
-                        $this->formatTicket(
+                        'data' => $this->formatTicket(
                             $ticket
                         ),
                     ], 409);
@@ -202,28 +188,21 @@ class EventQRCheckInController extends Controller
                     now();
 
                 $ticket->update([
-                    'checked_in_at' =>
-                    $checkedInAt,
+                    'checked_in_at' => $checkedInAt,
 
-                    'checked_in_by' =>
-                    $request->user()->id,
+                    'checked_in_by' => $request->user()->id,
 
-                    'status' =>
-                    'used',
+                    'status' => 'used',
                 ]);
 
                 EventQRCheckIn::create([
-                    'event_id' =>
-                    $event->id,
+                    'event_id' => $event->id,
 
-                    'event_ticket_id' =>
-                    $ticket->id,
+                    'event_ticket_id' => $ticket->id,
 
-                    'checked_in_by' =>
-                    $request->user()->id,
+                    'checked_in_by' => $request->user()->id,
 
-                    'checked_in_at' =>
-                    $checkedInAt,
+                    'checked_in_at' => $checkedInAt,
                 ]);
 
                 $ticket->load(
@@ -231,14 +210,11 @@ class EventQRCheckInController extends Controller
                 );
 
                 return response()->json([
-                    'message' =>
-                    'Attendee checked in successfully.',
+                    'message' => 'Attendee checked in successfully.',
 
-                    'code' =>
-                    'CHECKED_IN',
+                    'code' => 'CHECKED_IN',
 
-                    'data' =>
-                    $this->formatTicket(
+                    'data' => $this->formatTicket(
                         $ticket
                     ),
                 ]);
@@ -271,24 +247,22 @@ class EventQRCheckInController extends Controller
             ) {
                 $ticket =
                     EventTicket::query()
-                    ->where(
-                        'id',
-                        $validated['ticket_id']
-                    )
-                    ->where(
-                        'event_id',
-                        $event->id
-                    )
-                    ->lockForUpdate()
-                    ->first();
+                        ->where(
+                            'id',
+                            $validated['ticket_id']
+                        )
+                        ->where(
+                            'event_id',
+                            $event->id
+                        )
+                        ->lockForUpdate()
+                        ->first();
 
-                if (!$ticket) {
+                if (! $ticket) {
                     return response()->json([
-                        'message' =>
-                        'Ticket could not be found for this event.',
+                        'message' => 'Ticket could not be found for this event.',
 
-                        'code' =>
-                        'INVALID_TICKET',
+                        'code' => 'INVALID_TICKET',
                     ], 404);
                 }
 
@@ -297,11 +271,16 @@ class EventQRCheckInController extends Controller
                     'cancelled'
                 ) {
                     return response()->json([
-                        'message' =>
-                        'This ticket has been cancelled.',
+                        'message' => 'This ticket has been cancelled.',
 
-                        'code' =>
-                        'CANCELLED_TICKET',
+                        'code' => 'CANCELLED_TICKET',
+                    ], 422);
+                }
+
+                if ($ticket->status === 'pending_approval') {
+                    return response()->json([
+                        'message' => 'This registration is still awaiting organizer approval.',
+                        'code' => 'PENDING_APPROVAL',
                     ], 422);
                 }
 
@@ -313,14 +292,11 @@ class EventQRCheckInController extends Controller
                     );
 
                     return response()->json([
-                        'message' =>
-                        'This attendee has already been checked in.',
+                        'message' => 'This attendee has already been checked in.',
 
-                        'code' =>
-                        'ALREADY_CHECKED_IN',
+                        'code' => 'ALREADY_CHECKED_IN',
 
-                        'data' =>
-                        $this->formatTicket(
+                        'data' => $this->formatTicket(
                             $ticket
                         ),
                     ], 409);
@@ -330,14 +306,11 @@ class EventQRCheckInController extends Controller
                     now();
 
                 $ticket->update([
-                    'checked_in_at' =>
-                    $checkedInAt,
+                    'checked_in_at' => $checkedInAt,
 
-                    'checked_in_by' =>
-                    $request->user()->id,
+                    'checked_in_by' => $request->user()->id,
 
-                    'status' =>
-                    'used',
+                    'status' => 'used',
                 ]);
 
                 $ticket->load(
@@ -345,14 +318,11 @@ class EventQRCheckInController extends Controller
                 );
 
                 return response()->json([
-                    'message' =>
-                    'Attendee checked in manually.',
+                    'message' => 'Attendee checked in manually.',
 
-                    'code' =>
-                    'MANUAL_CHECKED_IN',
+                    'code' => 'MANUAL_CHECKED_IN',
 
-                    'data' =>
-                    $this->formatTicket(
+                    'data' => $this->formatTicket(
                         $ticket
                     ),
                 ]);
@@ -364,32 +334,23 @@ class EventQRCheckInController extends Controller
         EventTicket $ticket
     ): array {
         return [
-            'id' =>
-            $ticket->id,
+            'id' => $ticket->id,
 
-            'event_id' =>
-            $ticket->event_id,
+            'event_id' => $ticket->event_id,
 
-            'attendee_name' =>
-            $ticket->attendee_name,
+            'attendee_name' => $ticket->attendee_name,
 
-            'attendee_email' =>
-            $ticket->attendee_email,
+            'attendee_email' => $ticket->attendee_email,
 
-            'status' =>
-            $ticket->status,
+            'status' => $ticket->status,
 
-            'source' =>
-            $ticket->source,
+            'source' => $ticket->source,
 
-            'payment_status' =>
-            $ticket->payment_status,
+            'payment_status' => $ticket->payment_status,
 
-            'checked_in_at' =>
-            $ticket->checked_in_at,
+            'checked_in_at' => $ticket->checked_in_at,
 
-            'ticket_type' =>
-            $ticket->ticketType,
+            'ticket_type' => $ticket->ticketType,
         ];
     }
 }

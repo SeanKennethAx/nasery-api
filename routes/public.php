@@ -1,7 +1,8 @@
 <?php
 
-use App\Http\Controllers\PublicEventRegistrationController;
 use App\Http\Controllers\PublicEventMarketplaceController;
+use App\Http\Controllers\PublicEventPaymentController;
+use App\Http\Controllers\PublicEventRegistrationController;
 use App\Http\Controllers\PublicOrganizerController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +38,14 @@ Route::post(
         PublicEventRegistrationController::class,
         'sendEmailVerificationCode',
     ]
+);
+Route::get(
+    '/event-payments/{reference}',
+    [PublicEventPaymentController::class, 'show']
+);
+Route::post(
+    '/paymongo/webhook',
+    [PublicEventPaymentController::class, 'webhook']
 );
 
 Route::post(

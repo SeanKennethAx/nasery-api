@@ -54,6 +54,16 @@ Route::post(
 );
 
 Route::post(
+    '/notifications/{notificationId}/unread',
+    [NotificationController::class, 'markAsUnread']
+);
+
+Route::delete(
+    '/notifications/{notificationId}',
+    [NotificationController::class, 'destroy']
+);
+
+Route::post(
     '/notifications/read-all',
     [NotificationController::class, 'markAllAsRead']
 );

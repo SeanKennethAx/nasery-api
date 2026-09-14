@@ -171,6 +171,9 @@ Route::post(
     [EventAttendeeController::class, 'store']
 );
 
+Route::post('/organizer/events/{event}/attendees/{ticket}/approve', [EventAttendeeController::class, 'approve']);
+Route::post('/organizer/events/{event}/attendees/{ticket}/reject', [EventAttendeeController::class, 'reject']);
+
 Route::get(
     '/organizer/events/{event}/attendee-summary',
     [EventAttendeeController::class, 'summary']

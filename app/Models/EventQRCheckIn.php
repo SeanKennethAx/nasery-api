@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class EventQRCheckIn extends Model
 {
+    protected $table = 'event_qr_check_ins';
+
     protected $fillable = [
         'event_id',
         'event_ticket_id',

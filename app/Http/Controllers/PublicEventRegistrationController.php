@@ -7,15 +7,18 @@ use App\Mail\EventTicketMail;
 use App\Models\Attendee;
 use App\Models\EmailVerification;
 use App\Models\Event;
+use App\Models\EventPayment;
 use App\Models\EventRegistration;
 use App\Models\EventTicket;
 use App\Models\QrTicket;
+use App\Services\PayMongoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -40,43 +43,45 @@ class PublicEventRegistrationController extends Controller
             ])
             ->first();
 
-        if (!$event) {
+        if (! $event) {
             return response()->json([
-                'message' =>
-                'Registration link not found.',
+                'message' => 'Registration link not found.',
             ], 404);
         }
 
-        if (!$event->public_registration) {
+        if (! $event->public_registration) {
             return response()->json([
-                'message' =>
-                'Registration is currently closed for this event.',
+                'message' => 'Registration is currently closed for this event.',
 
-                'registration_open' =>
-                false,
+                'registration_open' => false,
             ], 422);
         }
 
         $ticketTypes = $event
             ->ticketTypes
+            ->unique(
+                fn ($ticketType) => mb_strtolower(trim($ticketType->name))
+                    .'|'.number_format((float) $ticketType->price, 2, '.', '')
+                    .'|'.$ticketType->capacity
+            )
             ->map(
                 function ($ticketType) use ($event) {
                     $issued =
                         EventTicket::query()
-                        ->where(
-                            'event_id',
-                            $event->id
-                        )
-                        ->where(
-                            'event_ticket_type_id',
-                            $ticketType->id
-                        )
-                        ->where(
-                            'status',
-                            '!=',
-                            'cancelled'
-                        )
-                        ->count();
+                            ->where(
+                                'event_id',
+                                $event->id
+                            )
+                            ->where(
+                                'event_ticket_type_id',
+                                $ticketType->id
+                            )
+                            ->where(
+                                'status',
+                                '!=',
+                                'cancelled'
+                            )
+                            ->count();
 
                     $remaining =
                         $ticketType->capacity > 0
@@ -93,81 +98,58 @@ class PublicEventRegistrationController extends Controller
                         $ticketType->capacity;
 
                     return [
-                        'id' =>
-                        $ticketType->id,
+                        'id' => $ticketType->id,
 
-                        'name' =>
-                        $ticketType->name,
+                        'name' => $ticketType->name,
 
-                        'price' =>
-                        $ticketType->price,
+                        'price' => $ticketType->price,
 
-                        'capacity' =>
-                        $ticketType->capacity,
+                        'capacity' => $ticketType->capacity,
 
-                        'issued' =>
-                        $issued,
+                        'issued' => $issued,
 
-                        'remaining' =>
-                        $remaining,
+                        'remaining' => $remaining,
 
-                        'sold_out' =>
-                        $soldOut,
+                        'sold_out' => $soldOut,
                     ];
                 }
             )
             ->values();
 
         return response()->json([
-            'registration_open' =>
-            true,
+            'registration_open' => true,
 
             'data' => [
                 'event' => [
-                    'id' =>
-                    $event->id,
+                    'id' => $event->id,
 
-                    'name' =>
-                    $event->name,
+                    'name' => $event->name,
 
-                    'event_type' =>
-                    $event->event_type,
+                    'event_type' => $event->event_type,
 
-                    'description' =>
-                    $event->description,
+                    'description' => $event->description,
 
-                    'event_date' =>
-                    $event->event_date,
+                    'event_date' => $event->event_date,
 
-                    'location' =>
-                    $event->location,
+                    'location' => $event->location,
 
-                    'start_time' =>
-                    $event->start_time,
+                    'start_time' => $event->start_time,
 
-                    'end_time' =>
-                    $event->end_time,
+                    'end_time' => $event->end_time,
 
-                    'public_registration' =>
-                    (bool) $event->public_registration,
+                    'public_registration' => (bool) $event->public_registration,
 
-                    'require_approval' =>
-                    (bool) $event->require_approval,
+                    'require_approval' => (bool) $event->require_approval,
 
-                    'waitlist_enabled' =>
-                    (bool) $event->waitlist_enabled,
+                    'waitlist_enabled' => (bool) $event->waitlist_enabled,
 
-                    'contact_name' =>
-                    $event->contact_name,
+                    'contact_name' => $event->contact_name,
 
-                    'contact_email' =>
-                    $event->contact_email,
+                    'contact_email' => $event->contact_email,
 
-                    'contact_phone' =>
-                    $event->contact_phone,
+                    'contact_phone' => $event->contact_phone,
 
-                    'ticket_types' =>
-                    $ticketTypes,
+                    'ticket_types' => $ticketTypes,
                 ],
             ],
         ]);
@@ -179,24 +161,22 @@ class PublicEventRegistrationController extends Controller
     ): JsonResponse {
         $event =
             Event::query()
-            ->whereHas(
-                'registrationSettings',
-                fn ($query) => $query->where('public_registration_token', $token)
-            )
-            ->with('registrationSettings')
-            ->first();
+                ->whereHas(
+                    'registrationSettings',
+                    fn ($query) => $query->where('public_registration_token', $token)
+                )
+                ->with('registrationSettings')
+                ->first();
 
-        if (!$event) {
+        if (! $event) {
             return response()->json([
-                'message' =>
-                'Registration link not found.',
+                'message' => 'Registration link not found.',
             ], 404);
         }
 
-        if (!$event->public_registration) {
+        if (! $event->public_registration) {
             return response()->json([
-                'message' =>
-                'Registration is currently closed for this event.',
+                'message' => 'Registration is currently closed for this event.',
             ], 422);
         }
 
@@ -208,11 +188,9 @@ class PublicEventRegistrationController extends Controller
                     'max:255',
                 ],
             ], [
-                'email.required' =>
-                'The email address is required.',
+                'email.required' => 'The email address is required.',
 
-                'email.email' =>
-                'Please provide a valid email address.',
+                'email.email' => 'Please provide a valid email address.',
             ]);
 
         $email =
@@ -228,34 +206,34 @@ class PublicEventRegistrationController extends Controller
          */
         $existing =
             EmailVerification::query()
-            ->where(
-                'email',
-                $email
-            )
-            ->where(
-                'event_token',
-                $token
-            )
-            ->whereNull(
-                'used_at'
-            )
-            ->latest('id')
-            ->first();
+                ->where(
+                    'email',
+                    $email
+                )
+                ->where(
+                    'event_token',
+                    $token
+                )
+                ->whereNull(
+                    'used_at'
+                )
+                ->latest('id')
+                ->first();
 
         if (
             $existing &&
             $existing->last_sent_at &&
             $existing->last_sent_at
-            ->gt(
-                now()->subSeconds(60)
-            )
+                ->gt(
+                    now()->subSeconds(60)
+                )
         ) {
             $elapsed =
                 $existing
-                ->last_sent_at
-                ->diffInSeconds(
-                    now()
-                );
+                    ->last_sent_at
+                    ->diffInSeconds(
+                        now()
+                    );
 
             $remaining =
                 max(
@@ -264,12 +242,10 @@ class PublicEventRegistrationController extends Controller
                 );
 
             return response()->json([
-                'message' =>
-                'Please wait before requesting another verification code.',
+                'message' => 'Please wait before requesting another verification code.',
 
                 'data' => [
-                    'resend_in' =>
-                    $remaining,
+                    'resend_in' => $remaining,
                 ],
             ], 429);
         }
@@ -307,32 +283,23 @@ class PublicEventRegistrationController extends Controller
         } else {
             $verification =
                 EmailVerification::create([
-                    'email' =>
-                    $email,
+                    'email' => $email,
 
-                    'event_token' =>
-                    $token,
+                    'event_token' => $token,
 
-                    'code_hash' =>
-                    $codeHash,
+                    'code_hash' => $codeHash,
 
-                    'verification_token' =>
-                    null,
+                    'verification_token' => null,
 
-                    'expires_at' =>
-                    now()->addMinutes(10),
+                    'expires_at' => now()->addMinutes(10),
 
-                    'verified_at' =>
-                    null,
+                    'verified_at' => null,
 
-                    'used_at' =>
-                    null,
+                    'used_at' => null,
 
-                    'last_sent_at' =>
-                    now(),
+                    'last_sent_at' => now(),
 
-                    'attempts' =>
-                    0,
+                    'attempts' => 0,
                 ]);
         }
 
@@ -375,8 +342,7 @@ class PublicEventRegistrationController extends Controller
             $verification->delete();
 
             return response()->json([
-                'message' =>
-                'Unable to send the verification email. Please try again.',
+                'message' => 'Unable to send the verification email. Please try again.',
             ], 500);
         }
 
@@ -395,20 +361,16 @@ class PublicEventRegistrationController extends Controller
          */
 
         return response()->json([
-            'message' =>
-            $existing
+            'message' => $existing
                 ? 'A new 6-digit verification code was sent. Any previous code is now invalid.'
                 : 'A 6-digit verification code was sent to your email.',
 
             'data' => [
-                'verification_id' =>
-                $verification->id,
+                'verification_id' => $verification->id,
 
-                'expires_in' =>
-                600,
+                'expires_in' => 600,
 
-                'resend_in' =>
-                60,
+                'resend_in' => 60,
             ],
         ]);
     }
@@ -419,24 +381,22 @@ class PublicEventRegistrationController extends Controller
     ): JsonResponse {
         $event =
             Event::query()
-            ->whereHas(
-                'registrationSettings',
-                fn ($query) => $query->where('public_registration_token', $token)
-            )
-            ->with('registrationSettings')
-            ->first();
+                ->whereHas(
+                    'registrationSettings',
+                    fn ($query) => $query->where('public_registration_token', $token)
+                )
+                ->with('registrationSettings')
+                ->first();
 
-        if (!$event) {
+        if (! $event) {
             return response()->json([
-                'message' =>
-                'Registration link not found.',
+                'message' => 'Registration link not found.',
             ], 404);
         }
 
-        if (!$event->public_registration) {
+        if (! $event->public_registration) {
             return response()->json([
-                'message' =>
-                'Registration is currently closed for this event.',
+                'message' => 'Registration is currently closed for this event.',
             ], 422);
         }
 
@@ -453,17 +413,13 @@ class PublicEventRegistrationController extends Controller
                     'digits:6',
                 ],
             ], [
-                'email.required' =>
-                'The email address is required.',
+                'email.required' => 'The email address is required.',
 
-                'email.email' =>
-                'Please provide a valid email address.',
+                'email.email' => 'Please provide a valid email address.',
 
-                'code.required' =>
-                'The 6-digit verification code is required.',
+                'code.required' => 'The 6-digit verification code is required.',
 
-                'code.digits' =>
-                'The verification code must contain exactly 6 digits.',
+                'code.digits' => 'The verification code must contain exactly 6 digits.',
             ]);
 
         $email =
@@ -490,22 +446,22 @@ class PublicEventRegistrationController extends Controller
                          */
                         $verification =
                             EmailVerification::query()
-                            ->where(
-                                'email',
-                                $email
-                            )
-                            ->where(
-                                'event_token',
-                                $token
-                            )
-                            ->whereNull(
-                                'used_at'
-                            )
-                            ->latest('id')
-                            ->lockForUpdate()
-                            ->first();
+                                ->where(
+                                    'email',
+                                    $email
+                                )
+                                ->where(
+                                    'event_token',
+                                    $token
+                                )
+                                ->whereNull(
+                                    'used_at'
+                                )
+                                ->latest('id')
+                                ->lockForUpdate()
+                                ->first();
 
-                        if (!$verification) {
+                        if (! $verification) {
                             abort(
                                 422,
                                 'No active verification request was found for this email. Please request a new code.'
@@ -516,11 +472,9 @@ class PublicEventRegistrationController extends Controller
                             $verification->isVerified()
                         ) {
                             return [
-                                'message' =>
-                                'This email has already been verified.',
+                                'message' => 'This email has already been verified.',
 
-                                'verification' =>
-                                $verification,
+                                'verification' => $verification,
                             ];
                         }
 
@@ -535,7 +489,7 @@ class PublicEventRegistrationController extends Controller
 
                         if (
                             $verification
-                            ->hasTooManyAttempts()
+                                ->hasTooManyAttempts()
                         ) {
                             abort(
                                 429,
@@ -544,7 +498,7 @@ class PublicEventRegistrationController extends Controller
                         }
 
                         if (
-                            !Hash::check(
+                            ! Hash::check(
                                 $code,
                                 $verification->code_hash
                             )
@@ -567,25 +521,21 @@ class PublicEventRegistrationController extends Controller
                             );
 
                         return [
-                            'message' =>
-                            'Email verified successfully.',
+                            'message' => 'Email verified successfully.',
 
-                            'verification' =>
-                            $verification->fresh(),
+                            'verification' => $verification->fresh(),
                         ];
                     }
                 );
         } catch (HttpException $error) {
             return response()->json([
-                'message' =>
-                $error->getMessage(),
+                'message' => $error->getMessage(),
             ], $error->getStatusCode());
         } catch (Throwable $error) {
             report($error);
 
             return response()->json([
-                'message' =>
-                'Unable to verify the email address. Please try again.',
+                'message' => 'Unable to verify the email address. Please try again.',
             ], 500);
         }
 
@@ -594,21 +544,16 @@ class PublicEventRegistrationController extends Controller
             $result['verification'];
 
         return response()->json([
-            'message' =>
-            $result['message'],
+            'message' => $result['message'],
 
             'data' => [
-                'verified' =>
-                true,
+                'verified' => true,
 
-                'verification_id' =>
-                $verification->id,
+                'verification_id' => $verification->id,
 
-                'email' =>
-                $verification->email,
+                'email' => $verification->email,
 
-                'verification_token' =>
-                $verification
+                'verification_token' => $verification
                     ->verification_token,
             ],
         ]);
@@ -620,31 +565,22 @@ class PublicEventRegistrationController extends Controller
     ): JsonResponse {
         $event =
             Event::query()
-            ->whereHas(
-                'registrationSettings',
-                fn ($query) => $query->where('public_registration_token', $token)
-            )
-            ->with('registrationSettings')
-            ->first();
+                ->whereHas(
+                    'registrationSettings',
+                    fn ($query) => $query->where('public_registration_token', $token)
+                )
+                ->with('registrationSettings')
+                ->first();
 
-        if (!$event) {
+        if (! $event) {
             return response()->json([
-                'message' =>
-                'Registration link not found.',
+                'message' => 'Registration link not found.',
             ], 404);
         }
 
-        if (!$event->public_registration) {
+        if (! $event->public_registration) {
             return response()->json([
-                'message' =>
-                'Registration is currently closed for this event.',
-            ], 422);
-        }
-
-        if ($event->require_approval) {
-            return response()->json([
-                'message' =>
-                'This event requires organizer approval before QR tickets can be issued.',
+                'message' => 'Registration is currently closed for this event.',
             ], 422);
         }
 
@@ -675,6 +611,12 @@ class PublicEventRegistrationController extends Controller
                     'max:50',
                 ],
 
+                'attendees.*.attendee_category' => [
+                    'required',
+                    'string',
+                    Rule::in(['invited', 'free', 'paid']),
+                ],
+
                 'attendees.*.email_verification_token' => [
                     'required',
                     'string',
@@ -689,44 +631,66 @@ class PublicEventRegistrationController extends Controller
                         'event_ticket_types',
                         'id'
                     )->where(
-                        fn($query) =>
-                        $query->where(
+                        fn ($query) => $query->where(
                             'event_id',
                             $event->id
                         )
                     ),
                 ],
             ], [
-                'attendees.required' =>
-                'At least one attendee is required.',
+                'attendees.required' => 'At least one attendee is required.',
 
-                'attendees.min' =>
-                'At least one attendee is required.',
+                'attendees.min' => 'At least one attendee is required.',
 
-                'attendees.max' =>
-                'A maximum of 20 attendees can be registered at one time.',
+                'attendees.max' => 'A maximum of 20 attendees can be registered at one time.',
 
-                'attendees.*.name.required' =>
-                'The attendee name is required.',
+                'attendees.*.name.required' => 'The attendee name is required.',
 
-                'attendees.*.email.required' =>
-                'The attendee email address is required.',
+                'attendees.*.email.required' => 'The attendee email address is required.',
 
-                'attendees.*.email.email' =>
-                'Please provide a valid attendee email address.',
+                'attendees.*.email.email' => 'Please provide a valid attendee email address.',
 
-                'attendees.*.email_verification_token.required' =>
-                'Please verify the attendee email address before registering.',
+                'attendees.*.email_verification_token.required' => 'Please verify the attendee email address before registering.',
 
-                'attendees.*.email_verification_token.size' =>
-                'The attendee email verification is invalid. Please verify the email again.',
+                'attendees.*.email_verification_token.size' => 'The attendee email verification is invalid. Please verify the email again.',
 
-                'attendees.*.event_ticket_type_id.required' =>
-                'Please select a ticket type for every attendee.',
+                'attendees.*.event_ticket_type_id.required' => 'Please select a ticket type for every attendee.',
 
-                'attendees.*.event_ticket_type_id.exists' =>
-                'One of the selected ticket types is invalid for this event.',
+                'attendees.*.event_ticket_type_id.exists' => 'One of the selected ticket types is invalid for this event.',
+
+                'attendees.*.attendee_category.required' => 'Please choose whether every attendee is invited, free, or paid.',
+
+                'attendees.*.attendee_category.in' => 'The selected attendee category is invalid.',
             ]);
+
+        $selectedTicketTypes = $event->ticketTypes()
+            ->whereIn(
+                'id',
+                collect($validated['attendees'])->pluck('event_ticket_type_id')->unique()
+            )
+            ->get()
+            ->keyBy('id');
+
+        foreach ($validated['attendees'] as $attendee) {
+            if (
+                $attendee['attendee_category'] === 'paid' &&
+                (float) $selectedTicketTypes->get($attendee['event_ticket_type_id'])?->price <= 0
+            ) {
+                return response()->json([
+                    'message' => 'A paid attendee must use a ticket type with a price. Choose Free for a complimentary ticket.',
+                ], 422);
+            }
+        }
+
+        $requiresPayment = collect($validated['attendees'])
+            ->contains(fn (array $attendee) => $attendee['attendee_category'] === 'paid');
+
+        if ($requiresPayment && ! app(PayMongoService::class)->isConfigured()) {
+            return response()->json([
+                'message' => 'Online payment is temporarily unavailable. The organizer must finish configuring PayMongo before paid registrations can continue.',
+                'code' => 'PAYMONGO_NOT_CONFIGURED',
+            ], 503);
+        }
 
         try {
             $tickets =
@@ -738,13 +702,13 @@ class PublicEventRegistrationController extends Controller
                     ) {
                         $lockedEvent =
                             Event::query()
-                            ->whereKey(
-                                $event->id
-                            )
-                            ->lockForUpdate()
-                            ->first();
+                                ->whereKey(
+                                    $event->id
+                                )
+                                ->lockForUpdate()
+                                ->first();
 
-                        if (!$lockedEvent) {
+                        if (! $lockedEvent) {
                             abort(
                                 404,
                                 'Event not found.'
@@ -752,7 +716,7 @@ class PublicEventRegistrationController extends Controller
                         }
 
                         if (
-                            !$lockedEvent
+                            ! $lockedEvent
                                 ->public_registration
                         ) {
                             abort(
@@ -761,41 +725,30 @@ class PublicEventRegistrationController extends Controller
                             );
                         }
 
-                        if (
-                            $lockedEvent
-                            ->require_approval
-                        ) {
-                            abort(
-                                422,
-                                'This event requires organizer approval before QR tickets can be issued.'
-                            );
-                        }
-
                         $attendees =
                             collect(
                                 $validated['attendees']
                             )
-                            ->sortBy(
-                                'event_ticket_type_id'
-                            )
-                            ->values();
+                                ->sortBy(
+                                    'event_ticket_type_id'
+                                )
+                                ->values();
 
                         $createdTickets = [];
 
                         foreach (
-                            $attendees
-                            as $attendee
+                            $attendees as $attendee
                         ) {
                             $ticketType =
                                 $lockedEvent
-                                ->ticketTypes()
-                                ->whereKey(
-                                    $attendee['event_ticket_type_id']
-                                )
-                                ->lockForUpdate()
-                                ->first();
+                                    ->ticketTypes()
+                                    ->whereKey(
+                                        $attendee['event_ticket_type_id']
+                                    )
+                                    ->lockForUpdate()
+                                    ->first();
 
-                            if (!$ticketType) {
+                            if (! $ticketType) {
                                 abort(
                                     422,
                                     'A selected ticket type does not belong to this event.'
@@ -804,20 +757,20 @@ class PublicEventRegistrationController extends Controller
 
                             $issued =
                                 EventTicket::query()
-                                ->where(
-                                    'event_id',
-                                    $lockedEvent->id
-                                )
-                                ->where(
-                                    'event_ticket_type_id',
-                                    $ticketType->id
-                                )
-                                ->where(
-                                    'status',
-                                    '!=',
-                                    'cancelled'
-                                )
-                                ->count();
+                                    ->where(
+                                        'event_id',
+                                        $lockedEvent->id
+                                    )
+                                    ->where(
+                                        'event_ticket_type_id',
+                                        $ticketType->id
+                                    )
+                                    ->where(
+                                        'status',
+                                        '!=',
+                                        'cancelled'
+                                    )
+                                    ->count();
 
                             if (
                                 $ticketType->capacity > 0 &&
@@ -826,7 +779,7 @@ class PublicEventRegistrationController extends Controller
                             ) {
                                 abort(
                                     422,
-                                    $ticketType->name .
+                                    $ticketType->name.
                                         ' is sold out.'
                                 );
                             }
@@ -856,28 +809,28 @@ class PublicEventRegistrationController extends Controller
                              */
                             $emailVerification =
                                 EmailVerification::query()
-                                ->where(
-                                    'email',
-                                    $email
-                                )
-                                ->where(
-                                    'event_token',
-                                    $token
-                                )
-                                ->where(
-                                    'verification_token',
-                                    $attendee['email_verification_token']
-                                )
-                                ->whereNotNull(
-                                    'verified_at'
-                                )
-                                ->whereNull(
-                                    'used_at'
-                                )
-                                ->lockForUpdate()
-                                ->first();
+                                    ->where(
+                                        'email',
+                                        $email
+                                    )
+                                    ->where(
+                                        'event_token',
+                                        $token
+                                    )
+                                    ->where(
+                                        'verification_token',
+                                        $attendee['email_verification_token']
+                                    )
+                                    ->whereNotNull(
+                                        'verified_at'
+                                    )
+                                    ->whereNull(
+                                        'used_at'
+                                    )
+                                    ->lockForUpdate()
+                                    ->first();
 
-                            if (!$emailVerification) {
+                            if (! $emailVerification) {
                                 abort(
                                     422,
                                     'The attendee email address has not been verified or the verification was already used.'
@@ -890,10 +843,10 @@ class PublicEventRegistrationController extends Controller
                              */
                             if (
                                 $emailVerification
-                                ->verified_at
-                                ->lt(
-                                    now()->subMinutes(30)
-                                )
+                                    ->verified_at
+                                    ->lt(
+                                        now()->subMinutes(30)
+                                    )
                             ) {
                                 abort(
                                     422,
@@ -902,40 +855,38 @@ class PublicEventRegistrationController extends Controller
                             }
 
                             $contactNo =
-                                !empty($attendee['contact_no'])
+                                ! empty($attendee['contact_no'])
                                 ? trim(
                                     $attendee['contact_no']
                                 )
                                 : null;
+
+                            $attendeeCategory = $attendee['attendee_category'];
+                            $attendeeRequiresPayment = $attendeeCategory === 'paid';
 
                             /*
                              * Reuse attendee by normalized email when possible.
                              */
                             $attendeeRecord =
                                 Attendee::query()
-                                ->firstOrCreate(
-                                    [
-                                        'email' =>
-                                        $email,
-                                    ],
-                                    [
-                                        'full_name' =>
-                                        $fullName,
+                                    ->firstOrCreate(
+                                        [
+                                            'email' => $email,
+                                        ],
+                                        [
+                                            'full_name' => $fullName,
 
-                                        'contact_no' =>
-                                        $contactNo,
-                                    ]
-                                );
+                                            'contact_no' => $contactNo,
+                                        ]
+                                    );
 
                             /*
                              * Keep attendee information current.
                              */
                             $attendeeRecord->fill([
-                                'full_name' =>
-                                $fullName,
+                                'full_name' => $fullName,
 
-                                'contact_no' =>
-                                $contactNo,
+                                'contact_no' => $contactNo,
                             ]);
 
                             if (
@@ -949,48 +900,40 @@ class PublicEventRegistrationController extends Controller
                              */
                             $registration =
                                 EventRegistration::create([
-                                    'event_id' =>
-                                    $lockedEvent->id,
+                                    'event_id' => $lockedEvent->id,
 
-                                    'attendee_id' =>
-                                    $attendeeRecord
+                                    'attendee_id' => $attendeeRecord
                                         ->attendee_id,
 
-                                    'event_ticket_type_id' =>
-                                    $ticketType->id,
+                                    'event_ticket_type_id' => $ticketType->id,
 
-                                    'source' =>
-                                    'public',
+                                    'source' => 'public',
 
-                                    'attendee_category' =>
-                                    (float) $ticketType->price > 0
-                                        ? 'paid'
-                                        : 'free',
+                                    'attendee_category' => $attendeeCategory,
 
-                                    'status' =>
-                                    'registered',
+                                    'status' => $attendeeRequiresPayment
+                                        ? 'payment_pending'
+                                        : ($lockedEvent->require_approval
+                                            ? 'pending_approval'
+                                            : 'registered'),
 
-                                    'payment_status' =>
-                                    (float) $ticketType->price > 0
-                                        ? 'paid'
+                                    'payment_status' => $attendeeRequiresPayment
+                                        ? 'pending'
                                         : null,
 
-                                    'registered_at' =>
-                                    now(),
+                                    'registered_at' => now(),
 
-                                    'checked_in_at' =>
-                                    null,
+                                    'checked_in_at' => null,
 
-                                    'checked_in_by' =>
-                                    null,
+                                    'checked_in_by' => null,
                                 ]);
 
                             $qrToken =
                                 $this
-                                ->generateUniqueQRToken();
+                                    ->generateUniqueQRToken();
 
                             $qrValue =
-                                'NASERY:TICKET:' .
+                                'NASERY:TICKET:'.
                                 $qrToken;
 
                             /*
@@ -998,24 +941,20 @@ class PublicEventRegistrationController extends Controller
                              */
                             $qrTicket =
                                 QrTicket::create([
-                                    'registration_id' =>
-                                    $registration
+                                    'registration_id' => $registration
                                         ->registration_id,
 
-                                    'qr_token' =>
-                                    $qrToken,
+                                    'qr_token' => $qrToken,
 
-                                    'qr_value' =>
-                                    $qrValue,
+                                    'qr_value' => $qrValue,
 
-                                    'generated_at' =>
-                                    now(),
+                                    'generated_at' => $lockedEvent->require_approval || $attendeeRequiresPayment
+                                        ? null
+                                        : now(),
 
-                                    'emailed_at' =>
-                                    null,
+                                    'emailed_at' => null,
 
-                                    'downloaded_at' =>
-                                    null,
+                                    'downloaded_at' => null,
                                 ]);
 
                             /*
@@ -1024,42 +963,33 @@ class PublicEventRegistrationController extends Controller
                              */
                             $ticket =
                                 EventTicket::create([
-                                    'event_id' =>
-                                    $lockedEvent->id,
+                                    'event_id' => $lockedEvent->id,
 
-                                    'event_ticket_type_id' =>
-                                    $ticketType->id,
+                                    'event_ticket_type_id' => $ticketType->id,
 
-                                    'attendee_name' =>
-                                    $fullName,
+                                    'attendee_name' => $fullName,
 
-                                    'attendee_email' =>
-                                    $email,
+                                    'attendee_email' => $email,
 
-                                    'qr_token' =>
-                                    $qrToken,
+                                    'qr_token' => $qrToken,
 
-                                    'source' =>
-                                    'online',
+                                    'source' => 'online',
 
-                                    'attendee_category' =>
-                                    (float) $ticketType->price > 0
-                                        ? 'paid'
-                                        : 'free',
+                                    'attendee_category' => $attendeeCategory,
 
-                                    'payment_status' =>
-                                    (float) $ticketType->price > 0
-                                        ? 'paid'
+                                    'payment_status' => $attendeeRequiresPayment
+                                        ? 'pending'
                                         : null,
 
-                                    'status' =>
-                                    'valid',
+                                    'status' => $attendeeRequiresPayment
+                                        ? 'payment_pending'
+                                        : ($lockedEvent->require_approval
+                                            ? 'pending_approval'
+                                            : 'valid'),
 
-                                    'checked_in_at' =>
-                                    null,
+                                    'checked_in_at' => null,
 
-                                    'checked_in_by' =>
-                                    null,
+                                    'checked_in_by' => null,
                                 ]);
 
                             $ticket->load([
@@ -1090,35 +1020,120 @@ class PublicEventRegistrationController extends Controller
                 );
         } catch (HttpException $error) {
             return response()->json([
-                'message' =>
-                $error->getMessage(),
+                'message' => $error->getMessage(),
             ], $error->getStatusCode());
         } catch (Throwable $error) {
             report($error);
 
             return response()->json([
-                'message' =>
-                'Unable to complete the registration. Please try again.',
+                'message' => 'Unable to complete the registration. Please try again.',
             ], 500);
         }
 
+        $requiresApproval =
+            (bool) $event->require_approval;
+
+        $paidTickets = collect($tickets)
+            ->filter(fn (array $ticket) => $ticket['attendee_category'] === 'paid')
+            ->values();
+
+        $readyTickets = collect($tickets)
+            ->reject(fn (array $ticket) => $ticket['attendee_category'] === 'paid')
+            ->values();
+
+        if (! $requiresApproval && $readyTickets->isNotEmpty()) {
+            $this->emailIssuedTickets($readyTickets->pluck('id')->all());
+        }
+
+        if ($paidTickets->isNotEmpty()) {
+            $amount = $paidTickets->sum(
+                fn (array $ticket) => (float) $ticket['ticket_type']['price']
+            );
+
+            $payment = EventPayment::create([
+                'reference' => (string) Str::uuid(),
+                'event_id' => $event->id,
+                'amount' => $amount,
+                'currency' => 'PHP',
+                'status' => 'pending',
+                'event_ticket_ids' => collect($tickets)->pluck('id')->all(),
+            ]);
+
+            try {
+                $firstTicket = $paidTickets->first();
+                $checkout = app(PayMongoService::class)->createCheckoutSession(
+                    $payment,
+                    $event,
+                    $paidTickets->groupBy(fn (array $ticket) => $ticket['ticket_type']['id'])->map(
+                        function ($group) use ($event) {
+                            $ticket = $group->first();
+
+                            return [
+                                'amount' => (int) round((float) $ticket['ticket_type']['price'] * 100),
+                                'currency' => 'PHP',
+                                'description' => $event->name.' admission',
+                                'name' => $ticket['ticket_type']['name'].' Ticket',
+                                'quantity' => $group->count(),
+                            ];
+                        }
+                    )->values()->all(),
+                    [
+                        'name' => $firstTicket['name'],
+                        'email' => $firstTicket['email'],
+                    ]
+                );
+
+                $payment->update([
+                    'checkout_session_id' => $checkout['id'],
+                    'provider_payload' => $checkout,
+                ]);
+            } catch (Throwable $error) {
+                report($error);
+
+                return response()->json([
+                    'message' => 'Registration was saved, but PayMongo checkout could not be started. Please contact the organizer.',
+                    'data' => ['payment_reference' => $payment->reference],
+                ], 503);
+            }
+
+            return response()->json([
+                'message' => 'Registration saved. Complete payment to receive your tickets.',
+                'data' => [
+                    'event' => ['id' => $event->id, 'name' => $event->name],
+                    'approval_required' => $requiresApproval,
+                    'tickets' => [],
+                    'payment' => [
+                        'reference' => $payment->reference,
+                        'amount' => $payment->amount,
+                        'currency' => $payment->currency,
+                        'status' => $payment->status,
+                        'checkout_url' => $checkout['attributes']['checkout_url'],
+                    ],
+                ],
+            ], 201);
+        }
+
         return response()->json([
-            'message' =>
-            count($tickets) > 1
-                ? 'Attendees registered successfully. QR tickets have been generated.'
-                : 'Attendee registered successfully. QR ticket has been generated.',
+            'message' => $requiresApproval
+                ? (count($tickets) > 1
+                    ? 'Registration requests submitted for organizer approval.'
+                    : 'Registration request submitted for organizer approval.')
+                : (count($tickets) > 1
+                    ? 'Attendees registered successfully. QR tickets are ready and have been emailed.'
+                    : 'Attendee registered successfully. The QR ticket is ready and has been emailed.'),
 
             'data' => [
                 'event' => [
-                    'id' =>
-                    $event->id,
+                    'id' => $event->id,
 
-                    'name' =>
-                    $event->name,
+                    'name' => $event->name,
                 ],
 
-                'tickets' =>
-                $tickets,
+                'approval_required' => $requiresApproval,
+
+                'tickets' => $requiresApproval ? [] : $tickets,
+
+                'pending_count' => $requiresApproval ? count($tickets) : 0,
             ],
         ], 201);
     }
@@ -1131,22 +1146,20 @@ class PublicEventRegistrationController extends Controller
                 $qrToken
             );
 
-        if (!$ticket) {
+        if (! $ticket) {
             return response()->json([
-                'message' =>
-                'Ticket not found.',
+                'message' => 'Ticket not found.',
             ], 404);
         }
 
         $normalized =
             $this
-            ->findNormalizedTicketData(
-                $ticket->qr_token
-            );
+                ->findNormalizedTicketData(
+                    $ticket->qr_token
+                );
 
         return response()->json([
-            'data' =>
-            $this->formatTicket(
+            'data' => $this->formatTicket(
                 $ticket,
                 $ticket->event,
                 $normalized['registration'],
@@ -1164,10 +1177,9 @@ class PublicEventRegistrationController extends Controller
                 $qrToken
             );
 
-        if (!$ticket) {
+        if (! $ticket) {
             return response()->json([
-                'message' =>
-                'Ticket not found.',
+                'message' => 'Ticket not found.',
             ], 404);
         }
 
@@ -1191,23 +1203,17 @@ class PublicEventRegistrationController extends Controller
                 Pdf::loadView(
                     'tickets.pdf',
                     [
-                        'ticket' =>
-                        $ticket,
+                        'ticket' => $ticket,
 
-                        'event' =>
-                        $ticket->event,
+                        'event' => $ticket->event,
 
-                        'ticketType' =>
-                        $ticket->ticketType,
+                        'ticketType' => $ticket->ticketType,
 
-                        'ticketId' =>
-                        $ticketId,
+                        'ticketId' => $ticketId,
 
-                        'qrValue' =>
-                        $qrValue,
+                        'qrValue' => $qrValue,
 
-                        'qrBase64' =>
-                        $qrBase64,
+                        'qrBase64' => $qrBase64,
                     ]
                 );
 
@@ -1225,28 +1231,23 @@ class PublicEventRegistrationController extends Controller
                     $ticket->qr_token
                 )
                 ->update([
-                    'downloaded_at' =>
-                    now(),
+                    'downloaded_at' => now(),
                 ]);
 
             return $pdf->download(
-                $ticketId . '.pdf'
+                $ticketId.'.pdf'
             );
         } catch (Throwable $error) {
             report($error);
 
             return response()->json([
-                'message' =>
-                'Unable to generate the ticket PDF.',
+                'message' => 'Unable to generate the ticket PDF.',
 
-                'error' =>
-                $error->getMessage(),
+                'error' => $error->getMessage(),
 
-                'file' =>
-                $error->getFile(),
+                'file' => $error->getFile(),
 
-                'line' =>
-                $error->getLine(),
+                'line' => $error->getLine(),
             ], 500);
         }
     }
@@ -1260,10 +1261,9 @@ class PublicEventRegistrationController extends Controller
                 $qrToken
             );
 
-        if (!$ticket) {
+        if (! $ticket) {
             return response()->json([
-                'message' =>
-                'Ticket not found.',
+                'message' => 'Ticket not found.',
             ], 404);
         }
 
@@ -1275,12 +1275,11 @@ class PublicEventRegistrationController extends Controller
                     'max:255',
                 ],
             ], [
-                'email.email' =>
-                'Please provide a valid email address.',
+                'email.email' => 'Please provide a valid email address.',
             ]);
 
         $email =
-            !empty($validated['email'])
+            ! empty($validated['email'])
             ? strtolower(
                 trim(
                     $validated['email']
@@ -1293,10 +1292,9 @@ class PublicEventRegistrationController extends Controller
                 )
             );
 
-        if (!$email) {
+        if (! $email) {
             return response()->json([
-                'message' =>
-                'No email address was provided for this ticket.',
+                'message' => 'No email address was provided for this ticket.',
             ], 422);
         }
 
@@ -1320,38 +1318,31 @@ class PublicEventRegistrationController extends Controller
                 Pdf::loadView(
                     'tickets.pdf',
                     [
-                        'ticket' =>
-                        $ticket,
+                        'ticket' => $ticket,
 
-                        'event' =>
-                        $ticket->event,
+                        'event' => $ticket->event,
 
-                        'ticketType' =>
-                        $ticket->ticketType,
+                        'ticketType' => $ticket->ticketType,
 
-                        'ticketId' =>
-                        $ticketId,
+                        'ticketId' => $ticketId,
 
-                        'qrValue' =>
-                        $qrValue,
+                        'qrValue' => $qrValue,
 
-                        'qrBase64' =>
-                        $qrBase64,
+                        'qrBase64' => $qrBase64,
                     ]
                 )
-                ->setPaper(
-                    'a4',
-                    'portrait'
-                )
-                ->output();
+                    ->setPaper(
+                        'a4',
+                        'portrait'
+                    )
+                    ->output();
 
             if (
-                !$ticket->attendee_email &&
-                !empty($validated['email'])
+                ! $ticket->attendee_email &&
+                ! empty($validated['email'])
             ) {
                 $ticket->update([
-                    'attendee_email' =>
-                    $email,
+                    'attendee_email' => $email,
                 ]);
 
                 $ticket->refresh();
@@ -1380,28 +1371,23 @@ class PublicEventRegistrationController extends Controller
                     $ticket->qr_token
                 )
                 ->update([
-                    'emailed_at' =>
-                    now(),
+                    'emailed_at' => now(),
                 ]);
         } catch (Throwable $error) {
             report($error);
 
             return response()->json([
-                'message' =>
-                'Unable to send the ticket email. Please try again.',
+                'message' => 'Unable to send the ticket email. Please try again.',
             ], 500);
         }
 
         return response()->json([
-            'message' =>
-            'Ticket sent successfully.',
+            'message' => 'Ticket sent successfully.',
 
             'data' => [
-                'email' =>
-                $email,
+                'email' => $email,
 
-                'ticket_id' =>
-                $ticketId,
+                'ticket_id' => $ticketId,
             ],
         ]);
     }
@@ -1414,6 +1400,13 @@ class PublicEventRegistrationController extends Controller
                 'qr_token',
                 $qrToken
             )
+            ->where('status', '!=', 'pending_approval')
+            ->where('status', '!=', 'payment_pending')
+            ->where('status', '!=', 'cancelled')
+            ->where(function ($query) {
+                $query->whereNull('payment_status')
+                    ->orWhere('payment_status', 'paid');
+            })
             ->with([
                 'event',
                 'ticketType',
@@ -1430,24 +1423,21 @@ class PublicEventRegistrationController extends Controller
     ): array {
         $qrTicket =
             QrTicket::query()
-            ->where(
-                'qr_token',
-                $qrToken
-            )
-            ->with([
-                'registration.attendee',
-            ])
-            ->first();
+                ->where(
+                    'qr_token',
+                    $qrToken
+                )
+                ->with([
+                    'registration.attendee',
+                ])
+                ->first();
 
         return [
-            'qr_ticket' =>
-            $qrTicket,
+            'qr_ticket' => $qrTicket,
 
-            'registration' =>
-            $qrTicket?->registration,
+            'registration' => $qrTicket?->registration,
 
-            'attendee' =>
-            $qrTicket
+            'attendee' => $qrTicket
                 ?->registration
                 ?->attendee,
         ];
@@ -1460,17 +1450,17 @@ class PublicEventRegistrationController extends Controller
                 Str::random(64);
         } while (
             EventTicket::query()
-            ->where(
-                'qr_token',
-                $token
-            )
-            ->exists() ||
+                ->where(
+                    'qr_token',
+                    $token
+                )
+                ->exists() ||
             QrTicket::query()
-            ->where(
-                'qr_token',
-                $token
-            )
-            ->exists()
+                ->where(
+                    'qr_token',
+                    $token
+                )
+                ->exists()
         );
 
         return $token;
@@ -1479,7 +1469,7 @@ class PublicEventRegistrationController extends Controller
     private function getTicketId(
         EventTicket $ticket
     ): string {
-        return 'TKT-' .
+        return 'TKT-'.
             str_pad(
                 (string) $ticket->id,
                 6,
@@ -1491,8 +1481,51 @@ class PublicEventRegistrationController extends Controller
     private function getQRValue(
         EventTicket $ticket
     ): string {
-        return 'NASERY:TICKET:' .
+        return 'NASERY:TICKET:'.
             $ticket->qr_token;
+    }
+
+    /**
+     * Email newly issued complimentary tickets without blocking registration
+     * when the mail provider is temporarily unavailable.
+     *
+     * @param  array<int, int>  $ticketIds
+     */
+    private function emailIssuedTickets(array $ticketIds): void
+    {
+        $tickets = EventTicket::query()
+            ->whereIn('id', $ticketIds)
+            ->where('status', 'valid')
+            ->with(['event', 'ticketType'])
+            ->get();
+
+        foreach ($tickets as $ticket) {
+            if (! $ticket->attendee_email) {
+                continue;
+            }
+
+            try {
+                $qrValue = $this->getQRValue($ticket);
+                $pdfContent = Pdf::loadView('tickets.pdf', [
+                    'ticket' => $ticket,
+                    'event' => $ticket->event,
+                    'ticketType' => $ticket->ticketType,
+                    'ticketId' => $this->getTicketId($ticket),
+                    'qrValue' => $qrValue,
+                    'qrBase64' => $this->generateQRBase64($qrValue),
+                ])->setPaper('a4', 'portrait')->output();
+
+                Mail::to($ticket->attendee_email)->send(
+                    new EventTicketMail($ticket, $pdfContent)
+                );
+
+                QrTicket::query()
+                    ->where('qr_token', $ticket->qr_token)
+                    ->update(['emailed_at' => now()]);
+            } catch (Throwable $error) {
+                report($error);
+            }
+        }
     }
 
     private function generateQRBase64(
@@ -1500,11 +1533,11 @@ class PublicEventRegistrationController extends Controller
     ): string {
         $qr =
             QrCode::format('png')
-            ->size(400)
-            ->margin(1)
-            ->generate(
-                $qrValue
-            );
+                ->size(400)
+                ->margin(1)
+                ->generate(
+                    $qrValue
+                );
 
         /*
          * Simple QR Code can return an HtmlString.
@@ -1512,7 +1545,7 @@ class PublicEventRegistrationController extends Controller
          * Base64 encoding it for DomPDF/email attachments.
          */
         $png =
-            $qr instanceof \Illuminate\Support\HtmlString
+            $qr instanceof HtmlString
             ? $qr->toHtml()
             : (string) $qr;
 
@@ -1529,7 +1562,7 @@ class PublicEventRegistrationController extends Controller
         ?QrTicket $qrTicket = null
     ): array {
         if (
-            !$ticket->relationLoaded(
+            ! $ticket->relationLoaded(
                 'ticketType'
             )
         ) {
@@ -1539,92 +1572,68 @@ class PublicEventRegistrationController extends Controller
         }
 
         return [
-            'id' =>
-            $ticket->id,
+            'id' => $ticket->id,
 
-            'registration_id' =>
-            $registration
+            'registration_id' => $registration
                 ?->registration_id,
 
-            'attendee_id' =>
-            $attendee
+            'attendee_id' => $attendee
                 ?->attendee_id,
 
-            'qr_ticket_id' =>
-            $qrTicket
+            'qr_ticket_id' => $qrTicket
                 ?->qr_ticket_id,
 
-            'ticket_id' =>
-            $this->getTicketId(
+            'ticket_id' => $this->getTicketId(
                 $ticket
             ),
 
-            'name' =>
-            $ticket->attendee_name,
+            'name' => $ticket->attendee_name,
 
-            'email' =>
-            $ticket->attendee_email,
+            'email' => $ticket->attendee_email,
 
-            'ticket_type' =>
-            $ticket->ticketType,
+            'ticket_type' => $ticket->ticketType,
 
-            'qr_token' =>
-            $ticket->qr_token,
+            'qr_token' => $ticket->qr_token,
 
-            'qr_value' =>
-            $this->getQRValue(
+            'qr_value' => $this->getQRValue(
                 $ticket
             ),
 
-            'source' =>
-            $ticket->source,
+            'source' => $ticket->source,
 
-            'attendee_category' =>
-            $ticket->attendee_category,
+            'attendee_category' => $ticket->attendee_category,
 
-            'payment_status' =>
-            $ticket->payment_status,
+            'payment_status' => $ticket->payment_status,
 
-            'status' =>
-            $ticket->checked_in_at
+            'status' => $ticket->checked_in_at
                 ? 'checked_in'
                 : 'registered',
 
-            'checked_in_at' =>
-            $ticket->checked_in_at,
+            'checked_in_at' => $ticket->checked_in_at,
 
-            'created_at' =>
-            $ticket->created_at,
+            'created_at' => $ticket->created_at,
 
             'event' => [
-                'id' =>
-                $event->id,
+                'id' => $event->id,
 
-                'name' =>
-                $event->name,
+                'name' => $event->name,
 
-                'event_type' =>
-                $event->event_type,
+                'event_type' => $event->event_type,
 
-                'event_date' =>
-                $event->event_date,
+                'event_date' => $event->event_date,
 
-                'location' =>
-                $event->location,
+                'location' => $event->location,
 
-                'start_time' =>
-                $event->start_time,
+                'start_time' => $event->start_time,
 
-                'end_time' =>
-                $event->end_time,
+                'end_time' => $event->end_time,
             ],
 
-            'download_url' =>
-            url(
-                '/api/tickets/' .
+            'download_url' => url(
+                '/api/tickets/'.
                     rawurlencode(
                         $ticket->qr_token
-                    ) .
+                    ).
                     '/download'
             ),
         ];
