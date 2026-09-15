@@ -15,7 +15,8 @@ class EmailVerificationCodeMail extends Mailable
 
     public function __construct(
         public string $code,
-        public string $eventName
+        public string $eventName,
+        public string $purpose = 'event'
     ) {}
 
     public function envelope(): Envelope

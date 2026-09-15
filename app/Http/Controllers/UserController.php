@@ -102,6 +102,12 @@ class UserController extends Controller
                     'in:organizer,client',
                 ],
 
+                'email_verification_token' => [
+                    'required',
+                    'string',
+                    'size:64',
+                ],
+
                 'location' => [
                     'required_if:role,organizer',
                     'nullable',

@@ -43,7 +43,7 @@
                                                         NaSeRy
                                                     </div>
                                                     <div style="margin-top:2px; font-size:12px; line-height:18px; color:#d6e8eb;">
-                                                        Secure Event Registration
+                                                        {{ $purpose === 'account' ? 'Secure Account Registration' : 'Secure Event Registration' }}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -76,7 +76,7 @@
                             </div>
 
                             <div style="margin-top:10px; font-size:14px; line-height:22px; color:#6b7280;">
-                                You're almost done. Use the one-time PIN below to verify your email and continue your event registration.
+                                You're almost done. Use the one-time PIN below to verify your email and continue {{ $purpose === 'account' ? 'creating your account' : 'your event registration' }}.
                             </div>
 
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
@@ -89,7 +89,7 @@
                                         border:1px solid #e5e7eb;
                                     ">
                                         <div style="font-size:11px; font-weight:700; letter-spacing:.10em; color:#6b7280;">
-                                            REGISTERING FOR
+                                            {{ $purpose === 'account' ? 'VERIFYING' : 'REGISTERING FOR' }}
                                         </div>
 
                                         <div style="margin-top:5px; font-size:17px; line-height:24px; font-weight:800; color:#111827;">

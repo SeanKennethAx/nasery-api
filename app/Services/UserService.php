@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\AccountEmailVerificationController;
+use App\Models\EmailVerification;
 use App\Models\User;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,21 @@ class UserService
     public function register(array $data): User
     {
         return DB::transaction(function () use ($data) {
+
+            $verification = EmailVerification::query()
+                ->where('email', strtolower(trim($data['email'])))
+                ->where('event_token', AccountEmailVerificationController::SCOPE)
+                ->where('verification_token', $data['email_verification_token'])
+                ->whereNotNull('verified_at')
+                ->whereNull('used_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $verification || $verification->verified_at->lt(now()->subMinutes(30))) {
+                throw ValidationException::withMessages([
+                    'email' => ['Verify your email address before creating the account.'],
+                ]);
+            }
 
             $user = $this->userRepository->createUser([
                 'firstname' =>
@@ -82,6 +99,12 @@ class UserService
                     $user->id
                 );
             }
+
+            $user->forceFill([
+                'email_verified_at' => now(),
+            ])->save();
+
+            $verification->markAsUsed();
 
 
             $user->load([
