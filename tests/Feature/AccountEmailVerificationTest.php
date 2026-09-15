@@ -116,4 +116,36 @@ class AccountEmailVerificationTest extends TestCase
         $this->assertNotNull($verification->fresh()->used_at);
         $this->assertNotNull(User::query()->firstOrFail()->email_verified_at);
     }
+
+    public function test_organizer_can_register_without_an_optional_service_address(): void
+    {
+        EmailVerification::create([
+            'email' => 'organizer@example.com',
+            'event_token' => AccountEmailVerificationController::SCOPE,
+            'code_hash' => Hash::make('654321'),
+            'expires_at' => now()->addMinutes(10),
+            'last_sent_at' => now()->subMinute(),
+        ]);
+
+        $token = $this->postJson('/api/auth/email-verification/verify', [
+            'email' => 'organizer@example.com',
+            'code' => '654321',
+        ])->assertOk()->json('data.verification_token');
+
+        $this->postJson('/api/auth/register', [
+            'firstname' => 'Test',
+            'lastname' => 'Organizer',
+            'email' => 'organizer@example.com',
+            'email_verification_token' => $token,
+            'phone' => '+639123456780',
+            'address' => 'Davao City',
+            'password' => 'password123',
+            'role' => 'organizer',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('organizers', [
+            'user_id' => User::query()->firstOrFail()->id,
+            'location' => null,
+        ]);
+    }
 }

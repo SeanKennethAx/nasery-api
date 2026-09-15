@@ -109,35 +109,30 @@ class UserController extends Controller
                 ],
 
                 'location' => [
-                    'required_if:role,organizer',
                     'nullable',
                     'string',
                     'max:500',
                 ],
 
                 'google_place_id' => [
-                    'required_if:role,organizer',
                     'nullable',
                     'string',
                     'max:255',
                 ],
 
                 'latitude' => [
-                    'required_if:role,organizer',
                     'nullable',
                     'numeric',
                     'between:-90,90',
                 ],
 
                 'longitude' => [
-                    'required_if:role,organizer',
                     'nullable',
                     'numeric',
                     'between:-180,180',
                 ],
 
                 'service_radius_km' => [
-                    'required_if:role,organizer',
                     'nullable',
                     'integer',
                     'min:1',
@@ -165,21 +160,6 @@ class UserController extends Controller
 
                 'address.required' =>
                 'The address field is required.',
-
-                'location.required_if' =>
-                'Please select your organizer service location.',
-
-                'google_place_id.required_if' =>
-                'Please select a valid location from the suggestions.',
-
-                'latitude.required_if' =>
-                'The selected organizer location is missing latitude.',
-
-                'longitude.required_if' =>
-                'The selected organizer location is missing longitude.',
-
-                'service_radius_km.required_if' =>
-                'Please select your organizer service radius.',
 
                 'latitude.between' =>
                 'The selected latitude is invalid.',

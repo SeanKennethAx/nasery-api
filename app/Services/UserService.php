@@ -69,7 +69,7 @@ class UserService
                     [
                         'location' =>
                         $data['location']
-                            ?? $data['address'],
+                            ?? null,
 
                         'google_place_id' =>
                         $data['google_place_id']
