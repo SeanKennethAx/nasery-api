@@ -14,7 +14,10 @@ class EventController extends Controller
         $events = Event::query()
             ->managedBy($request->user())
             ->with([
-                'ticketTypes',
+                'ticketTypes' => fn ($query) => $query->withCount([
+                    'tickets as sold' => fn ($tickets) => $tickets
+                        ->where('status', '!=', 'cancelled'),
+                ]),
                 'eventLocation',
                 'registrationSettings',
             ])
@@ -221,7 +224,10 @@ class EventController extends Controller
         );
 
         $event->load([
-            'ticketTypes',
+            'ticketTypes' => fn ($query) => $query->withCount([
+                'tickets as sold' => fn ($tickets) => $tickets
+                    ->where('status', '!=', 'cancelled'),
+            ]),
             'eventLocation',
             'registrationSettings',
         ]);
@@ -245,7 +251,10 @@ class EventController extends Controller
         );
 
         $event->load([
-            'ticketTypes',
+            'ticketTypes' => fn ($query) => $query->withCount([
+                'tickets as sold' => fn ($tickets) => $tickets
+                    ->where('status', '!=', 'cancelled'),
+            ]),
             'eventLocation',
             'registrationSettings',
         ]);
@@ -516,7 +525,10 @@ class EventController extends Controller
         $event->refresh();
 
         $event->load([
-            'ticketTypes',
+            'ticketTypes' => fn ($query) => $query->withCount([
+                'tickets as sold' => fn ($tickets) => $tickets
+                    ->where('status', '!=', 'cancelled'),
+            ]),
             'eventLocation',
             'registrationSettings',
         ]);

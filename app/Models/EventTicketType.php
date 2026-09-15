@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EventTicketType extends Model
 {
@@ -23,6 +24,14 @@ class EventTicketType extends Model
         return $this->belongsTo(
             Event::class,
             'event_id'
+        );
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(
+            EventTicket::class,
+            'event_ticket_type_id'
         );
     }
 }
