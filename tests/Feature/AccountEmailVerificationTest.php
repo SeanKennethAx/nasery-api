@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\AccountEmailVerificationController;
 use App\Mail\EmailVerificationCodeMail;
+use App\Mail\PasswordResetCodeMail;
 use App\Models\EmailVerification;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
@@ -22,6 +23,8 @@ class AccountEmailVerificationTest extends TestCase
         Schema::dropIfExists('organizers');
         Schema::dropIfExists('team_members');
         Schema::dropIfExists('email_verifications');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('personal_access_tokens');
         Schema::dropIfExists('users');
 
         Schema::create('users', function (Blueprint $table) {
@@ -49,6 +52,23 @@ class AccountEmailVerificationTest extends TestCase
             $table->timestamp('used_at')->nullable();
             $table->timestamp('last_sent_at')->nullable();
             $table->unsignedTinyInteger('attempts')->default(0);
+            $table->timestamps();
+        });
+
+        Schema::create('password_reset_tokens', function (Blueprint $table) {
+            $table->string('email')->primary();
+            $table->string('token');
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('personal_access_tokens', function (Blueprint $table) {
+            $table->id();
+            $table->morphs('tokenable');
+            $table->string('name');
+            $table->string('token', 64)->unique();
+            $table->text('abilities')->nullable();
+            $table->timestamp('last_used_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
         });
 
@@ -147,5 +167,57 @@ class AccountEmailVerificationTest extends TestCase
             'user_id' => User::query()->firstOrFail()->id,
             'location' => null,
         ]);
+    }
+
+    public function test_password_reset_requires_matching_registered_email_and_phone(): void
+    {
+        Mail::fake();
+        $user = User::create([
+            'firstname' => 'Reset',
+            'lastname' => 'User',
+            'email' => 'reset@example.com',
+            'phone' => '+639123456781',
+            'address' => 'Davao City',
+            'password' => 'old-password',
+            'role' => 'client',
+        ]);
+
+        $this->postJson('/api/auth/forgot-password/send', [
+            'email' => 'reset@example.com',
+            'phone' => '+639123456799',
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/auth/forgot-password/send', [
+            'email' => 'reset@example.com',
+            'phone' => '+639123456781',
+        ])->assertOk();
+
+        $code = null;
+        Mail::assertSent(PasswordResetCodeMail::class, function ($mail) use (&$code) {
+            $code = $mail->code;
+
+            return $mail->hasTo('reset@example.com');
+        });
+
+        $this->postJson('/api/auth/forgot-password/reset', [
+            'email' => 'reset@example.com',
+            'phone' => '+639123456781',
+            'code' => $code,
+            'password' => 'new-password',
+            'password_confirmation' => 'new-password',
+        ])->assertOk();
+
+        $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'reset@example.com']);
+    }
+
+    public function test_unconfigured_social_provider_returns_to_the_login_screen_with_feedback(): void
+    {
+        config(['services.google.client_id' => null]);
+
+        $response = $this->get('/api/auth/social/google/redirect?role=client&mode=login');
+
+        $response->assertRedirect();
+        $this->assertStringContainsString('/login?social_error=', $response->headers->get('Location'));
     }
 }

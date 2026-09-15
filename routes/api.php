@@ -1,13 +1,20 @@
 <?php
 
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\AccountEmailVerificationController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\SocialAuthController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
     Route::post('/email-verification/send', [AccountEmailVerificationController::class, 'send'])->middleware('throttle:10,1');
     Route::post('/email-verification/verify', [AccountEmailVerificationController::class, 'verify'])->middleware('throttle:30,1');
+    Route::post('/forgot-password/send', [PasswordResetController::class, 'send'])->middleware('throttle:5,1');
+    Route::post('/forgot-password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1');
+    Route::get('/social/{provider}/redirect', [SocialAuthController::class, 'redirect']);
+    Route::match(['get', 'post'], '/social/{provider}/callback', [SocialAuthController::class, 'callback']);
+    Route::post('/social/exchange', [SocialAuthController::class, 'exchange'])->middleware('throttle:20,1');
 
     Route::post(
         '/register',
