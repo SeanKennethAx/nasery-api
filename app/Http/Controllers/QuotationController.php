@@ -9,6 +9,7 @@ use App\Models\EventTicket;
 use App\Models\Inquiry;
 use App\Models\Organizer;
 use App\Models\Quotation;
+use App\Notifications\QuotationAcceptedNotification;
 use App\Notifications\QuotationReceivedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -410,6 +411,10 @@ class QuotationController extends Controller
             'organizer.user',
             'inclusions',
         ]);
+
+        $quotation->organizer?->user?->notify(
+            new QuotationAcceptedNotification($quotation)
+        );
 
         return response()->json([
             'message' =>

@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\ClientEventTicketController;
 use App\Http\Controllers\InquiryController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizerController;
 use App\Http\Controllers\OrganizerReviewController;
 use App\Http\Controllers\QuotationController;
@@ -41,31 +40,6 @@ Route::get(
 Route::post(
     '/organizers/{organizer}/reviews',
     [OrganizerReviewController::class, 'store']
-);
-
-Route::get(
-    '/notifications',
-    [NotificationController::class, 'index']
-);
-
-Route::post(
-    '/notifications/{notificationId}/read',
-    [NotificationController::class, 'markAsRead']
-);
-
-Route::post(
-    '/notifications/{notificationId}/unread',
-    [NotificationController::class, 'markAsUnread']
-);
-
-Route::delete(
-    '/notifications/{notificationId}',
-    [NotificationController::class, 'destroy']
-);
-
-Route::post(
-    '/notifications/read-all',
-    [NotificationController::class, 'markAllAsRead']
 );
 
 Route::get(

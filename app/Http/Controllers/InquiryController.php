@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inquiry;
+use App\Models\Organizer;
+use App\Notifications\MatchingInquiryNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -182,6 +184,15 @@ class InquiryController extends Controller
 
             'status' => 'open',
         ]);
+
+        Organizer::query()
+            ->with('user')
+            ->get()
+            ->filter(fn (Organizer $organizer) => collect($organizer->tags ?? [])
+                ->contains(fn ($tag) => strcasecmp((string) $tag, $inquiry->event_type) === 0))
+            ->each(fn (Organizer $organizer) => $organizer->user?->notify(
+                new MatchingInquiryNotification($inquiry)
+            ));
 
         return response()->json([
             'message' => 'Inquiry submitted successfully.',
