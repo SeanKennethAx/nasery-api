@@ -36,7 +36,11 @@ class SocialAuthController extends Controller
         }
 
         $state = Str::random(64);
-        Cache::put("social-auth-state:$state", ['provider' => $provider, 'role' => $validated['role']], now()->addMinutes(10));
+        Cache::put("social-auth-state:$state", [
+            'provider' => $provider,
+            'role' => $validated['role'],
+            'mode' => $validated['mode'],
+        ], now()->addMinutes(10));
 
         $driver = Socialite::driver($provider)->stateless()->with(['state' => $state]);
         if ($provider === 'apple') {
