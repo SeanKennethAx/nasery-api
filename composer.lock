@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7d3bee87b9f59d79e90c8446bada92aa",
+    "content-hash": "53215870b788b462fdc0cb7232bbf3c8",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2070,79 +2070,6 @@
                 }
             ],
             "time": "2026-04-13T21:30:16+00:00"
-        },
-        {
-            "name": "lcobucci/jwt",
-            "version": "5.6.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/lcobucci/jwt.git",
-                "reference": "bb3e9f21e4196e8afc41def81ef649c164bca25e"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/lcobucci/jwt/zipball/bb3e9f21e4196e8afc41def81ef649c164bca25e",
-                "reference": "bb3e9f21e4196e8afc41def81ef649c164bca25e",
-                "shasum": ""
-            },
-            "require": {
-                "ext-openssl": "*",
-                "ext-sodium": "*",
-                "php": "~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0",
-                "psr/clock": "^1.0"
-            },
-            "require-dev": {
-                "infection/infection": "^0.29",
-                "lcobucci/clock": "^3.2",
-                "lcobucci/coding-standard": "^11.0",
-                "phpbench/phpbench": "^1.2",
-                "phpstan/extension-installer": "^1.2",
-                "phpstan/phpstan": "^1.10.7",
-                "phpstan/phpstan-deprecation-rules": "^1.1.3",
-                "phpstan/phpstan-phpunit": "^1.3.10",
-                "phpstan/phpstan-strict-rules": "^1.5.0",
-                "phpunit/phpunit": "^11.1"
-            },
-            "suggest": {
-                "lcobucci/clock": ">= 3.2"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Lcobucci\\JWT\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-3-Clause"
-            ],
-            "authors": [
-                {
-                    "name": "Luís Cobucci",
-                    "email": "lcobucci@gmail.com",
-                    "role": "Developer"
-                }
-            ],
-            "description": "A simple library to work with JSON Web Token and JSON Web Signature",
-            "keywords": [
-                "JWS",
-                "jwt"
-            ],
-            "support": {
-                "issues": "https://github.com/lcobucci/jwt/issues",
-                "source": "https://github.com/lcobucci/jwt/tree/5.6.0"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/lcobucci",
-                    "type": "github"
-                },
-                {
-                    "url": "https://www.patreon.com/lcobucci",
-                    "type": "patreon"
-                }
-            ],
-            "time": "2025-10-17T11:30:53+00:00"
         },
         {
             "name": "league/commonmark",
@@ -4458,77 +4385,6 @@
             "time": "2021-02-08T20:43:55+00:00"
         },
         {
-            "name": "socialiteproviders/apple",
-            "version": "6.0.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/SocialiteProviders/Apple.git",
-                "reference": "5ce081fb7406a1f1be5fc59c7ff082a4e8c10ed1"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/SocialiteProviders/Apple/zipball/5ce081fb7406a1f1be5fc59c7ff082a4e8c10ed1",
-                "reference": "5ce081fb7406a1f1be5fc59c7ff082a4e8c10ed1",
-                "shasum": ""
-            },
-            "require": {
-                "ext-openssl": "*",
-                "firebase/php-jwt": "^7.0",
-                "lcobucci/clock": "^2.0 || ^3.0",
-                "lcobucci/jwt": "^4.1.5 || ^5.0.0",
-                "php": "^8.0",
-                "socialiteproviders/manager": "^4.4"
-            },
-            "suggest": {
-                "ahilmurugesan/socialite-apple-helper": "Automatic Apple client key generation and management."
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "SocialiteProviders\\Apple\\": ""
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Ahilan",
-                    "email": "ahilmurugesan@gmail.com",
-                    "role": "Developer"
-                },
-                {
-                    "name": "Vamsi Krishna V",
-                    "email": "vamsi@vonectech.com",
-                    "homepage": "https://vonectech.com/",
-                    "role": "Farmer"
-                }
-            ],
-            "description": "Apple OAuth2 Provider for Laravel Socialite",
-            "keywords": [
-                "apple",
-                "apple client key",
-                "apple sign in",
-                "client key generator",
-                "client key refresh",
-                "laravel",
-                "laravel apple",
-                "laravel socialite",
-                "oauth",
-                "provider",
-                "sign in with apple",
-                "socialite",
-                "socialite apple"
-            ],
-            "support": {
-                "docs": "https://socialiteproviders.com/apple",
-                "issues": "https://github.com/socialiteproviders/providers/issues",
-                "source": "https://github.com/socialiteproviders/providers"
-            },
-            "time": "2026-09-11T22:03:12+00:00"
-        },
-        {
             "name": "socialiteproviders/manager",
             "version": "4.10.0",
             "source": {
@@ -4601,6 +4457,56 @@
                 "source": "https://github.com/socialiteproviders/manager"
             },
             "time": "2026-08-16T00:16:22+00:00"
+        },
+        {
+            "name": "socialiteproviders/microsoft",
+            "version": "4.10.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/SocialiteProviders/Microsoft.git",
+                "reference": "e86ad86734df16a54d869b21103b9e2ec3842000"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/SocialiteProviders/Microsoft/zipball/e86ad86734df16a54d869b21103b9e2ec3842000",
+                "reference": "e86ad86734df16a54d869b21103b9e2ec3842000",
+                "shasum": ""
+            },
+            "require": {
+                "firebase/php-jwt": "^7.0",
+                "php": "^8.0",
+                "socialiteproviders/manager": "^4.4"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "SocialiteProviders\\Microsoft\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Brian Faust",
+                    "email": "hello@brianfaust.de"
+                }
+            ],
+            "description": "Microsoft OAuth2 Provider for Laravel Socialite",
+            "keywords": [
+                "laravel",
+                "microsoft",
+                "oauth",
+                "provider",
+                "socialite"
+            ],
+            "support": {
+                "docs": "https://socialiteproviders.com/microsoft",
+                "issues": "https://github.com/socialiteproviders/providers/issues",
+                "source": "https://github.com/socialiteproviders/providers"
+            },
+            "time": "2026-07-21T22:20:53+00:00"
         },
         {
             "name": "symfony/clock",

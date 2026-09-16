@@ -16,7 +16,7 @@ use Throwable;
 
 class SocialAuthController extends Controller
 {
-    private const PROVIDERS = ['google', 'facebook', 'apple'];
+    private const PROVIDERS = ['google', 'facebook', 'microsoft'];
 
     public function redirect(Request $request, string $provider): RedirectResponse|JsonResponse
     {
@@ -43,9 +43,6 @@ class SocialAuthController extends Controller
         ], now()->addMinutes(10));
 
         $driver = Socialite::driver($provider)->stateless()->with(['state' => $state]);
-        if ($provider === 'apple') {
-            $driver->cookieNonce();
-        }
 
         return $driver->redirect();
     }
@@ -63,9 +60,6 @@ class SocialAuthController extends Controller
             }
 
             $driver = Socialite::driver($provider)->stateless();
-            if ($provider === 'apple') {
-                $driver->cookieNonce();
-            }
             $profile = $driver->user();
             $email = strtolower(trim((string) $profile->getEmail()));
             if (! $email) {
