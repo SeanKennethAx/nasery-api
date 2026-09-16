@@ -16,7 +16,7 @@ use Throwable;
 
 class SocialAuthController extends Controller
 {
-    private const PROVIDERS = ['google', 'facebook', 'microsoft'];
+    private const PROVIDERS = ['google', 'facebook'];
 
     public function redirect(Request $request, string $provider): RedirectResponse|JsonResponse
     {
